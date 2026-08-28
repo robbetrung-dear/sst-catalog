@@ -26,6 +26,7 @@ export const AdminModal: React.FC = () => {
     loginAdmin,
     logoutAdmin,
     changeAdminPassword,
+    resetAdminPassword,
     siteSettings,
     updateSiteSettings,
     storeProfile,
@@ -53,6 +54,12 @@ export const AdminModal: React.FC = () => {
   // Local login form state
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
+
+  // Password reset verification state
+  const [isResetVerificationOpen, setIsResetVerificationOpen] = useState(false);
+  const [resetAnswerInput, setResetAnswerInput] = useState('');
+  const [resetVerificationError, setResetVerificationError] = useState('');
+  const [isResettingLoading, setIsResettingLoading] = useState(false);
 
   // Active admin tab
   const [adminTab, setAdminTab] = useState<
@@ -109,6 +116,28 @@ export const AdminModal: React.FC = () => {
       setPasswordInput('');
     } else {
       setLoginError('Password tidak sesuai. Silakan periksa kembali.');
+    }
+  };
+
+  // Handle Verify & Reset Password to Default
+  const handleVerifyAndResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (resetAnswerInput.trim() !== '2226') {
+      setResetVerificationError('Jawaban verifikasi tidak sesuai.');
+      return;
+    }
+
+    setIsResettingLoading(true);
+    setResetVerificationError('');
+    try {
+      await resetAdminPassword();
+      setPasswordInput('Dear2226');
+      setLoginError('');
+      setIsResetVerificationOpen(false);
+    } catch (err: any) {
+      setResetVerificationError(`Gagal memverifikasi: ${err?.message || err}`);
+    } finally {
+      setIsResettingLoading(false);
     }
   };
 
@@ -230,45 +259,113 @@ export const AdminModal: React.FC = () => {
 
         {/* Content Area */}
         {!adminRole ? (
-          /* Password Authentication Prompt */
-          <div className="p-8 sm:p-12 flex flex-col items-center justify-center text-center space-y-6 max-w-md mx-auto my-auto">
-            <div className="w-16 h-16 rounded-2xl bg-[#135A62]/10 text-[#135A62] flex items-center justify-center">
-              <Lock className="w-8 h-8" />
-            </div>
-
-            <div className="space-y-1">
-              <h4 className="text-xl font-black text-slate-900">Akses Terkunci Admin</h4>
-              <p className="text-xs text-slate-500">
-                Masukkan kata sandi akses administrator untuk mengelola database CSV dan pengaturan situs.
-              </p>
-            </div>
-
-            {loginError && (
-              <div className="w-full p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-                <span>{loginError}</span>
+          isResetVerificationOpen ? (
+            /* Verification Screen to Reset Password to Default */
+            <div className="p-8 sm:p-12 flex flex-col items-center justify-center text-center space-y-6 max-w-md mx-auto my-auto animate-in fade-in duration-200">
+              <div className="w-16 h-16 rounded-2xl bg-[#135A62]/10 text-[#135A62] flex items-center justify-center">
+                <Lock className="w-8 h-8" />
               </div>
-            )}
 
-            <form onSubmit={handleLoginSubmit} className="w-full space-y-3">
-              <input
-                type="password"
-                required
-                placeholder="Masukkan Password Admin..."
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                autoFocus
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-center tracking-widest font-mono outline-none focus:ring-2 focus:ring-[#135A62]/30 focus:border-[#135A62]"
-              />
+              <div className="space-y-1">
+                <h4 className="text-xl font-black text-slate-900">Verifikasi Super Admin</h4>
+                <p className="text-xs text-slate-500">
+                  Berapa 4 digit terakhir password super admin?
+                </p>
+              </div>
+
+              {resetVerificationError && (
+                <div className="w-full p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2 text-left">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                  <span>{resetVerificationError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleVerifyAndResetSubmit} className="w-full space-y-3">
+                <input
+                  type="text"
+                  required
+                  placeholder=""
+                  value={resetAnswerInput}
+                  onChange={(e) => {
+                    setResetAnswerInput(e.target.value);
+                    if (resetVerificationError) setResetVerificationError('');
+                  }}
+                  autoFocus
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-center font-mono outline-none focus:ring-2 focus:ring-[#135A62]/30 focus:border-[#135A62]"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsResetVerificationOpen(false);
+                      setResetVerificationError('');
+                    }}
+                    className="w-1/3 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isResettingLoading}
+                    className="flex-1 py-3 bg-[#135A62] hover:bg-[#0e444a] text-white font-bold rounded-xl text-sm shadow-md transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isResettingLoading ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : null}
+                    <span>Lanjutkan</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            /* Password Authentication Prompt */
+            <div className="p-8 sm:p-12 flex flex-col items-center justify-center text-center space-y-6 max-w-md mx-auto my-auto">
               <button
-                type="submit"
-                className="w-full py-3 bg-[#135A62] hover:bg-[#0e444a] text-white font-bold rounded-xl text-sm shadow-md transition-colors flex items-center justify-center gap-2"
+                type="button"
+                onClick={() => {
+                  setIsResetVerificationOpen(true);
+                  setResetAnswerInput('');
+                  setResetVerificationError('');
+                }}
+                className="w-16 h-16 rounded-2xl bg-[#135A62]/10 text-[#135A62] flex items-center justify-center focus:outline-none cursor-pointer"
               >
-                <Unlock className="w-4 h-4" />
-                <span>Buka Panel Admin</span>
+                <Lock className="w-8 h-8" />
               </button>
-            </form>
-          </div>
+
+              <div className="space-y-1">
+                <h4 className="text-xl font-black text-slate-900">Akses Terkunci Admin</h4>
+                <p className="text-xs text-slate-500">
+                  Masukkan kata sandi akses administrator untuk mengelola database CSV dan pengaturan situs.
+                </p>
+              </div>
+
+              {loginError && (
+                <div className="w-full p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2 text-left">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                  <span>{loginError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleLoginSubmit} className="w-full space-y-3">
+                <input
+                  type="password"
+                  required
+                  placeholder="Masukkan Password Admin..."
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  autoFocus
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-center tracking-widest font-mono outline-none focus:ring-2 focus:ring-[#135A62]/30 focus:border-[#135A62]"
+                />
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-[#135A62] hover:bg-[#0e444a] text-white font-bold rounded-xl text-sm shadow-md transition-colors flex items-center justify-center gap-2"
+                >
+                  <Unlock className="w-4 h-4" />
+                  <span>Buka Panel Admin</span>
+                </button>
+              </form>
+            </div>
+          )
         ) : (
           /* Authenticated Dashboard Tabs & Views */
           <div className="flex-1 flex flex-col md:flex-row overflow-hidden">

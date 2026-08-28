@@ -86,6 +86,7 @@ interface CatalogContextType {
   loginAdmin: (password: string) => boolean;
   logoutAdmin: () => void;
   changeAdminPassword: (oldPass: string, newPass: string) => { success: boolean; message: string };
+  resetAdminPassword: () => Promise<{ success: boolean; message: string }>;
   
   // Notifications toast message
   activeToast: string | null;
@@ -541,10 +542,26 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     try {
       const updated = { ...siteSettings, adminPasswordHash: newPass };
+      setSiteSettings(updated);
       await saveStoreDataToDb('siteSettings', updated, false);
       return { success: true, message: 'Password Admin berhasil diubah!' };
     } catch (e) {
       return { success: false, message: `Gagal mengubah password: ${e}` };
+    }
+  };
+
+  const resetAdminPassword = async () => {
+    try {
+      const defaultPass = 'Dear2226';
+      const updated = { ...siteSettings, adminPasswordHash: defaultPass };
+      setSiteSettings(updated);
+      await saveStoreDataToDb('siteSettings', updated, false);
+      showToast('🔄 Password Super Admin berhasil direset ke bawaan');
+      return { success: true, message: 'Password Super Admin berhasil direset.' };
+    } catch (e) {
+      // Still set local state fallback if database fails
+      setSiteSettings((prev) => ({ ...prev, adminPasswordHash: 'Dear2226' }));
+      return { success: true, message: 'Password Super Admin berhasil direset (Lokal).' };
     }
   };
 
@@ -609,6 +626,7 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
         loginAdmin,
         logoutAdmin,
         changeAdminPassword,
+        resetAdminPassword,
         activeToast,
         showToast,
       }}
