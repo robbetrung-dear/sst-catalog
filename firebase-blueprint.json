@@ -1,0 +1,41 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Catalog product entity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nama": { "type": "string" },
+        "kategori": { "type": "string" },
+        "harga": { "type": "number" },
+        "stok": { "type": "number" },
+        "satuan": { "type": "string" },
+        "deskripsi": { "type": "string" },
+        "gambar": { "type": "string" },
+        "terlaris": { "type": "boolean" },
+        "promo": { "type": "boolean" },
+        "hargaPromo": { "type": "number" }
+      },
+      "required": ["id", "nama", "kategori", "harga", "satuan"]
+    },
+    "StoreData": {
+      "title": "StoreData",
+      "description": "Store settings, categories, info trends and notifications",
+      "type": "object",
+      "properties": {
+        "items": { "type": "array" }
+      }
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "All catalog products"
+    },
+    "/storeData/{documentId}": {
+      "schema": "StoreData",
+      "description": "Store settings and metadata"
+    }
+  }
+}

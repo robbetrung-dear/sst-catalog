@@ -1,0 +1,8 @@
+{
+  "name": "SST Catalog",
+  "description": "Aplikasi web katalog produk SST Catalog - interaktif dan super cepat dengan pencarian real-time, filter kategori/merk/tipe, keranjang belanja WhatsApp checkout, dan dashboard admin terintegrasi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

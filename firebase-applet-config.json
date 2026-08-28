@@ -1,0 +1,12 @@
+{
+  "projectId": "tjs-catalog",
+  "appId": "1:97053324925:web:b94650a31f8af3c3fca314",
+  "apiKey": "AIzaSyAAKLb0f2OO81mk07a9-QvtQrvz7YGERLk",
+  "authDomain": "tjs-catalog.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "tjs-catalog.firebasestorage.app",
+  "messagingSenderId": "97053324925",
+  "measurementId": "G-THSN5P81D8",
+  "oAuthClientId": "",
+  "recaptchaSiteKey": ""
+}

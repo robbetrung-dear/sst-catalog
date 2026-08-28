@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect width="64" height="64" rx="16" fill="#135A62"/>
+  <path d="M18 24C18 20.6863 20.6863 18 24 18H40C43.3137 18 46 20.6863 46 24V40C46 43.3137 43.3137 46 40 46H24C20.6863 46 18 43.3137 18 40V24Z" stroke="#34D399" stroke-width="3" stroke-linecap="round"/>
+  <text x="32" y="38" fill="#FFFFFF" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="16" text-anchor="middle" letter-spacing="0.5">SST</text>
+</svg>
