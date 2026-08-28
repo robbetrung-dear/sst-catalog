@@ -1,12 +1,12 @@
 {
-  "projectId": "tjs-catalog",
-  "appId": "1:97053324925:web:b94650a31f8af3c3fca314",
-  "apiKey": "AIzaSyAAKLb0f2OO81mk07a9-QvtQrvz7YGERLk",
-  "authDomain": "tjs-catalog.firebaseapp.com",
+  "projectId": "sst-catalog",
+  "appId": "1:552075506694:web:afe66a557bd41f425f3f87",
+  "apiKey": "AIzaSyAtMptjqY5aNdUM31dTVGsSEgXdeVaYsqY",
+  "authDomain": "sst-catalog.firebaseapp.com",
   "firestoreDatabaseId": "(default)",
-  "storageBucket": "tjs-catalog.firebasestorage.app",
-  "messagingSenderId": "97053324925",
-  "measurementId": "G-THSN5P81D8",
+  "storageBucket": "sst-catalog.firebasestorage.app",
+  "messagingSenderId": "552075506694",
+  "measurementId": "G-T161R59DVX",
   "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }

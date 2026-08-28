@@ -3,7 +3,7 @@ import {
   X, Lock, Unlock, Settings, UploadCloud, Database, Layers, BookOpen,
   Building2, Bell, Shield, Key, Download, Plus, Trash2, Edit2, Check,
   AlertCircle, FileSpreadsheet, RefreshCw, Eye, Sparkles, ExternalLink, HelpCircle,
-  CheckCircle2, CloudLightning, Server, Terminal, Copy
+  CheckCircle2, CloudLightning, Server, Terminal, Copy, Globe
 } from 'lucide-react';
 import { useCatalog } from '../context/CatalogContext';
 import { Product, InfoTrendItem } from '../types';
@@ -1993,7 +1993,6 @@ export const AdminModal: React.FC = () => {
                             const cleanDbId = fbDatabaseId.trim();
                             const isCustomNamedDb = cleanDbId && 
                               cleanDbId !== '(default)' && 
-                              !cleanDbId.includes('sstcatalog') && 
                               !cleanDbId.includes('ai-studio');
 
                             const newConfig = {
@@ -2036,6 +2035,71 @@ export const AdminModal: React.FC = () => {
                         {fbSeedStatus.message}
                       </div>
                     )}
+
+                    {/* Cloudflare Pages / Hosting Multi-Device Sync Card */}
+                    <div className="p-4 bg-sky-50 border border-sky-200 rounded-2xl space-y-3 text-xs text-sky-950">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 font-bold text-sm text-sky-950">
+                          <Globe className="w-4 h-4 text-sky-600 shrink-0" />
+                          <span>Sinkronisasi Multi-Device & Hosting (Cloudflare Pages)</span>
+                        </div>
+                      </div>
+                      <p className="text-sky-800 text-[11px] leading-relaxed">
+                        Agar database Firebase terhubung otomatis di <strong>semua device (HP, Laptop lain)</strong> saat diakses via domain <code className="bg-sky-100 px-1 py-0.5 rounded font-mono">pages.dev</code> tanpa perlu input admin manual di tiap device, masukkan variabel lingkungan ini ke pengaturan Cloudflare Pages Anda:
+                      </p>
+                      
+                      <div className="bg-slate-900 text-slate-100 p-3 rounded-xl font-mono text-[11px] space-y-1 relative group overflow-x-auto">
+                        <div className="text-slate-400 text-[10px] pb-1 border-b border-slate-700 font-sans flex justify-between items-center">
+                          <span>Environment Variables untuk Cloudflare Pages</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const envText = `VITE_FIREBASE_PROJECT_ID=${fbProjectId || currentFirebaseProjectId}\nVITE_FIREBASE_API_KEY=${fbApiKey}\nVITE_FIREBASE_APP_ID=${fbAppId}\nVITE_FIREBASE_AUTH_DOMAIN=${fbAuthDomain || `${fbProjectId || currentFirebaseProjectId}.firebaseapp.com`}\nVITE_FIREBASE_STORAGE_BUCKET=${fbStorageBucket || `${fbProjectId || currentFirebaseProjectId}.firebasestorage.app`}\nVITE_FIREBASE_MESSAGING_SENDER_ID=${fbMessagingSenderId}\nVITE_FIREBASE_MEASUREMENT_ID=${fbMeasurementId}`;
+                              navigator.clipboard.writeText(envText);
+                              showToast('📋 Format .env untuk Cloudflare Pages berhasil disalin!');
+                            }}
+                            className="text-sky-300 hover:text-sky-100 underline text-[10px] cursor-pointer"
+                          >
+                            Salin Semua
+                          </button>
+                        </div>
+                        <p>VITE_FIREBASE_PROJECT_ID={fbProjectId || currentFirebaseProjectId}</p>
+                        <p>VITE_FIREBASE_API_KEY={fbApiKey || '(API_KEY_ANDA)'}</p>
+                        <p>VITE_FIREBASE_APP_ID={fbAppId || '(APP_ID_ANDA)'}</p>
+                        <p>VITE_FIREBASE_AUTH_DOMAIN={fbAuthDomain || `${fbProjectId || currentFirebaseProjectId}.firebaseapp.com`}</p>
+                        <p>VITE_FIREBASE_STORAGE_BUCKET={fbStorageBucket || `${fbProjectId || currentFirebaseProjectId}.firebasestorage.app`}</p>
+                        <p>VITE_FIREBASE_MESSAGING_SENDER_ID={fbMessagingSenderId || ''}</p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const jsonConfig = {
+                              projectId: fbProjectId || currentFirebaseProjectId,
+                              appId: fbAppId,
+                              apiKey: fbApiKey,
+                              authDomain: fbAuthDomain || `${fbProjectId || currentFirebaseProjectId}.firebaseapp.com`,
+                              firestoreDatabaseId: "(default)",
+                              storageBucket: fbStorageBucket || `${fbProjectId || currentFirebaseProjectId}.firebasestorage.app`,
+                              messagingSenderId: fbMessagingSenderId,
+                              measurementId: fbMeasurementId
+                            };
+                            const blob = new Blob([JSON.stringify(jsonConfig, null, 2)], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'firebase-applet-config.json';
+                            a.click();
+                            showToast('📥 File firebase-applet-config.json berhasil diunduh!');
+                          }}
+                          className="px-3 py-1.5 bg-sky-700 hover:bg-sky-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Download firebase-applet-config.json</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

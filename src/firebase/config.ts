@@ -64,15 +64,14 @@ export const firebaseConfig = {
 
 export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-// If database ID is "(default)", empty, or contains legacy sstcatalog, use standard default database
+// If database ID is "(default)", empty, or undefined, use standard default database
 const customDbId = localSavedConfig?.firestoreDatabaseId || envDatabaseId || fallbackConfig.firestoreDatabaseId;
 const isDefaultDatabase = !customDbId || 
   customDbId === '(default)' || 
-  customDbId.trim() === '' || 
-  customDbId.includes('sstcatalog') || 
+  customDbId.trim() === '' ||
   customDbId.includes('ai-studio');
 
-const resolvedDatabaseId = isDefaultDatabase ? undefined : customDbId;
+const resolvedDatabaseId = isDefaultDatabase ? undefined : customDbId.trim();
 
 let firestoreInstance: Firestore;
 try {
