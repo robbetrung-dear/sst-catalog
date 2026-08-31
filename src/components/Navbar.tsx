@@ -42,12 +42,12 @@ export const Navbar: React.FC = () => {
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs transition-all">
       {/* Top emergency announcement bar */}
-      <div className="bg-[#135A62] text-white text-xs py-1.5 px-4 text-center font-medium flex items-center justify-between">
-        <div className="max-w-7xl mx-auto flex items-center justify-between w-full">
-          <span className="truncate">
+      <div className="bg-[#135A62] text-white text-xs py-1.5 px-4 text-center font-medium flex items-center justify-between overflow-hidden">
+        <div className="max-w-7xl mx-auto flex items-center justify-between w-full min-w-0">
+          <span className="truncate flex-1 text-left sm:text-center">
             ✨ <strong>Katalog Resmi:</strong> Melayani Pesanan Grosir & Eceran Seluruh Indonesia
           </span>
-          <div className="hidden md:flex items-center space-x-4 shrink-0 text-slate-100">
+          <div className="hidden md:flex items-center space-x-4 shrink-0 text-slate-100 ml-4">
             <span>⏰ {storeProfile.jamOperasional.split('|')[0] || 'Senin - Sabtu: 08:00 - 17:00'}</span>
             <a
               href={`https://wa.me/${cleanPhone}`}
@@ -62,12 +62,12 @@ export const Navbar: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-18 gap-3">
+        <div className="flex items-center justify-between h-16 sm:h-20 gap-2 sm:gap-3 overflow-hidden">
           {/* Logo & Store Name */}
           <div
             id="nav-brand-logo"
             onClick={() => handleNavClick('beranda')}
-            className="flex items-center gap-3 cursor-pointer select-none shrink-0"
+            className="flex items-center gap-2 sm:gap-3 cursor-pointer select-none shrink sm:shrink-0 min-w-0"
           >
             {siteSettings.logoUrl ? (
               <img
@@ -78,29 +78,29 @@ export const Navbar: React.FC = () => {
                   width: `${siteSettings.logoWidth || 160}px`,
                   height: `${siteSettings.logoHeight || 44}px`,
                 }}
-                className="object-contain"
+                className="object-contain shrink-0 max-w-[80px] sm:max-w-none"
                 onError={(e) => {
                   (e.currentTarget as HTMLElement).style.display = 'none';
                 }}
               />
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-[#135A62] text-white flex items-center justify-center font-bold text-xl shadow-xs">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-[#135A62] text-white flex items-center justify-center font-bold text-lg sm:text-xl shadow-xs">
                 {storeProfile.namaToko.charAt(0) || 'K'}
               </div>
             )}
 
-            <div className="flex flex-col">
-              <span className="font-bold text-slate-900 text-lg sm:text-xl tracking-tight leading-tight">
+            <div className="flex flex-col min-w-0">
+              <span className="font-bold text-slate-900 text-base sm:text-xl tracking-tight leading-tight truncate">
                 {storeProfile.namaToko}
               </span>
-              <span className="text-xs text-slate-500 line-clamp-1 hidden sm:block">
+              <span className="text-xs text-slate-500 truncate hidden sm:block">
                 {storeProfile.slogan}
               </span>
             </div>
           </div>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center space-x-1 font-medium text-sm text-slate-700">
+          <nav className="hidden lg:flex items-center space-x-1 font-medium text-sm text-slate-700 shrink-0">
             {navItems.map((item) => {
               const isActive = activeTab === item.id;
               return (
@@ -121,11 +121,11 @@ export const Navbar: React.FC = () => {
           </nav>
 
           {/* Right Action Icons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {/* Quick Search Toggle / Input */}
-            <div className="relative">
+            <div className="relative hidden sm:block">
               {showSearchInput ? (
-                <div className="flex items-center bg-slate-100 rounded-lg px-2.5 py-1.5 border border-slate-300 w-48 sm:w-64 animate-in fade-in duration-150">
+                <div className="flex items-center bg-slate-100 rounded-lg px-2.5 py-1.5 border border-slate-300 w-48 lg:w-64 animate-in fade-in duration-150">
                   <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
                   <input
                     type="text"
@@ -133,7 +133,7 @@ export const Navbar: React.FC = () => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Cari produk..."
                     autoFocus
-                    className="bg-transparent border-none outline-none text-xs sm:text-sm w-full text-slate-800"
+                    className="bg-transparent border-none outline-none text-sm w-full text-slate-800"
                   />
                   <button
                     onClick={() => {
@@ -154,7 +154,7 @@ export const Navbar: React.FC = () => {
                     setShowSearchInput(true);
                     if (activeTab !== 'beranda') setActiveTab('beranda');
                   }}
-                  className="p-2.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-[#135A62] transition-colors"
+                  className="p-2 sm:p-2.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-[#135A62] transition-colors"
                   title="Cari Produk"
                 >
                   <Search className="w-5 h-5" />
@@ -166,13 +166,13 @@ export const Navbar: React.FC = () => {
             <button
               id="nav-cart-btn"
               onClick={() => setIsCartOpen(true)}
-              className="relative p-2.5 rounded-lg bg-emerald-50 text-[#135A62] hover:bg-emerald-100 transition-colors flex items-center justify-center font-semibold text-sm gap-1.5"
+              className="relative p-2 sm:p-2.5 rounded-lg bg-emerald-50 text-[#135A62] hover:bg-emerald-100 transition-colors flex items-center justify-center font-semibold text-sm gap-1.5"
               title="Lihat Keranjang Belanja"
             >
-              <ShoppingCart className="w-5 h-5 text-[#135A62]" />
+              <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-[#135A62]" />
               <span className="hidden sm:inline">Keranjang</span>
               {totalCartItems > 0 && (
-                <span className="min-w-5 h-5 px-1.5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center font-bold shadow-xs animate-pulse">
+                <span className="absolute -top-1.5 -right-1.5 sm:static sm:min-w-5 sm:h-5 w-4 h-4 px-1 sm:px-1.5 bg-red-500 text-white rounded-full text-[10px] sm:text-xs flex items-center justify-center font-bold shadow-xs animate-pulse">
                   {totalCartItems}
                 </span>
               )}
@@ -182,19 +182,19 @@ export const Navbar: React.FC = () => {
             <button
               id="nav-admin-btn"
               onClick={() => setIsAdminOpen(true)}
-              className="p-2.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+              className="p-2 sm:p-2.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
               title="Panel Kelola Admin & CSV"
             >
-              <Shield className="w-5 h-5" />
+              <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
             {/* Mobile Menu Toggle */}
             <button
               id="nav-mobile-toggle"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2.5 rounded-lg text-slate-700 hover:bg-slate-100 lg:hidden"
+              className="p-2 rounded-lg text-slate-700 hover:bg-slate-100 lg:hidden ml-1"
             >
-              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
