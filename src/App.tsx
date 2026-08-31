@@ -17,13 +17,14 @@ import { CartDrawer } from './components/CartDrawer';
 import { AdminModal } from './components/AdminModal';
 import { StockNotificationToast } from './components/StockNotificationToast';
 import { Footer } from './components/Footer';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const MainCatalogApp: React.FC = () => {
-  const { activeTab, siteSettings } = useCatalog();
+  const { activeTab, siteSettings, storeProfile } = useCatalog();
 
   React.useEffect(() => {
-    document.title = 'SST Catalog';
-  }, []);
+    document.title = storeProfile?.namaToko ? `${storeProfile.namaToko} - Katalog` : 'SST Catalog';
+  }, [storeProfile?.namaToko]);
 
   return (
     <div
@@ -41,20 +42,22 @@ const MainCatalogApp: React.FC = () => {
 
       {/* Main Dynamic View Content */}
       <main className="flex-1">
-        {activeTab === 'beranda' && (
-          <div className="space-y-6">
-            <HeroBanner />
-            <ProductCatalog />
-          </div>
-        )}
+        <ErrorBoundary fallbackTitle="Kendala Memuat Halaman">
+          {activeTab === 'beranda' && (
+            <div className="space-y-6">
+              <HeroBanner />
+              <ProductCatalog />
+            </div>
+          )}
 
-        {activeTab === 'kategori' && <CategoryView />}
+          {activeTab === 'kategori' && <CategoryView />}
 
-        {activeTab === 'info-trend' && <InfoTrendView />}
+          {activeTab === 'info-trend' && <InfoTrendView />}
 
-        {activeTab === 'tentang-kami' && <StoreProfileView />}
+          {activeTab === 'tentang-kami' && <StoreProfileView />}
 
-        {activeTab === 'hubungi-kami' && <ContactView />}
+          {activeTab === 'hubungi-kami' && <ContactView />}
+        </ErrorBoundary>
       </main>
 
       {/* Product Detail Popup Modal */}

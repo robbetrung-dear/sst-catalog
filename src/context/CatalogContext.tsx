@@ -85,7 +85,7 @@ interface CatalogContextType {
   // Security
   loginAdmin: (password: string) => boolean;
   logoutAdmin: () => void;
-  changeAdminPassword: (oldPass: string, newPass: string) => { success: boolean; message: string };
+  changeAdminPassword: (oldPass: string, newPass: string) => Promise<{ success: boolean; message: string }>;
   resetAdminPassword: () => Promise<{ success: boolean; message: string }>;
   
   // Notifications toast message
@@ -197,42 +197,97 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
     document.documentElement.style.setProperty('--primary-color', siteSettings.primaryColor || '#135A62');
   }, [siteSettings]);
 
-  // Derived Lists
+  // Derived Lists with safe deduplication and fallback handling
   const allCategories = useMemo(() => {
-    const set = new Set<string>();
-    products.forEach((p) => {
-      if (p.kategori) set.add(p.kategori.trim());
-    });
-    return Array.from(set).sort();
-  }, [products]);
+    const map = new Map<string, string>(); // lowerCase -> originalCase
+
+    if (Array.isArray(categoriesMeta)) {
+      categoriesMeta.forEach((c) => {
+        if (c && typeof c.nama === 'string') {
+          const trimmed = c.nama.trim();
+          if (trimmed) {
+            const lower = trimmed.toLowerCase();
+            if (!map.has(lower)) {
+              map.set(lower, trimmed);
+            }
+          }
+        }
+      });
+    }
+
+    if (Array.isArray(products)) {
+      products.forEach((p) => {
+        if (p && typeof p.kategori === 'string') {
+          const trimmed = p.kategori.trim();
+          if (trimmed) {
+            const lower = trimmed.toLowerCase();
+            if (!map.has(lower)) {
+              map.set(lower, trimmed);
+            }
+          }
+        }
+      });
+    }
+
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  }, [products, categoriesMeta]);
 
   const allBrands = useMemo(() => {
-    const set = new Set<string>();
-    products.forEach((p) => {
-      if (p.merk) set.add(p.merk.trim());
-    });
-    return Array.from(set).sort();
+    const map = new Map<string, string>();
+    if (Array.isArray(products)) {
+      products.forEach((p) => {
+        if (p && typeof p.merk === 'string') {
+          const trimmed = p.merk.trim();
+          if (trimmed) {
+            const lower = trimmed.toLowerCase();
+            if (!map.has(lower)) {
+              map.set(lower, trimmed);
+            }
+          }
+        }
+      });
+    }
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
   }, [products]);
 
   const allTypes = useMemo(() => {
-    const set = new Set<string>();
-    products.forEach((p) => {
-      if (p.type) set.add(p.type.trim());
-    });
-    return Array.from(set).sort();
+    const map = new Map<string, string>();
+    if (Array.isArray(products)) {
+      products.forEach((p) => {
+        if (p && typeof p.type === 'string') {
+          const trimmed = p.type.trim();
+          if (trimmed) {
+            const lower = trimmed.toLowerCase();
+            if (!map.has(lower)) {
+              map.set(lower, trimmed);
+            }
+          }
+        }
+      });
+    }
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
   }, [products]);
 
   // Filtered and Sorted Products
   const filteredProducts = useMemo(() => {
+    if (!Array.isArray(products)) return [];
+
     return products.filter((p) => {
+      if (!p) return false;
+      const nama = typeof p.nama === 'string' ? p.nama : '';
+      const merk = typeof p.merk === 'string' ? p.merk : '';
+      const type = typeof p.type === 'string' ? p.type : '';
+      const kategori = typeof p.kategori === 'string' ? p.kategori : '';
+      const deskripsi = typeof p.deskripsi === 'string' ? p.deskripsi : '';
+
       // Search matches name, merk, type, kategori, deskripsi
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
-        const matchName = p.nama.toLowerCase().includes(q);
-        const matchMerk = p.merk.toLowerCase().includes(q);
-        const matchType = p.type.toLowerCase().includes(q);
-        const matchKat = p.kategori.toLowerCase().includes(q);
-        const matchDesc = p.deskripsi.toLowerCase().includes(q);
+        const matchName = nama.toLowerCase().includes(q);
+        const matchMerk = merk.toLowerCase().includes(q);
+        const matchType = type.toLowerCase().includes(q);
+        const matchKat = kategori.toLowerCase().includes(q);
+        const matchDesc = deskripsi.toLowerCase().includes(q);
         if (!matchName && !matchMerk && !matchType && !matchKat && !matchDesc) {
           return false;
         }
@@ -240,52 +295,56 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       // Filter Category
       if (selectedCategory && selectedCategory !== 'Semua') {
-        if (p.kategori.toLowerCase() !== selectedCategory.toLowerCase()) {
+        if (kategori.trim().toLowerCase() !== selectedCategory.trim().toLowerCase()) {
           return false;
         }
       }
 
       // Filter Brand
       if (selectedBrand && selectedBrand !== 'Semua') {
-        if (p.merk.toLowerCase() !== selectedBrand.toLowerCase()) {
+        if (merk.trim().toLowerCase() !== selectedBrand.trim().toLowerCase()) {
           return false;
         }
       }
 
       // Filter Type
       if (selectedType && selectedType !== 'Semua') {
-        if (p.type.toLowerCase() !== selectedType.toLowerCase()) {
+        if (type.trim().toLowerCase() !== selectedType.trim().toLowerCase()) {
           return false;
         }
       }
 
       return true;
     }).sort((a, b) => {
+      if (!a || !b) return 0;
+      const namaA = typeof a.nama === 'string' ? a.nama : '';
+      const namaB = typeof b.nama === 'string' ? b.nama : '';
+
       if (sortBy === 'popular') {
-        const favA = (a.angka_produk_favorit && a.angka_produk_favorit > 0) ? a.angka_produk_favorit : Number.MAX_SAFE_INTEGER;
-        const favB = (b.angka_produk_favorit && b.angka_produk_favorit > 0) ? b.angka_produk_favorit : Number.MAX_SAFE_INTEGER;
+        const favA = (typeof a.angka_produk_favorit === 'number' && a.angka_produk_favorit > 0) ? a.angka_produk_favorit : Number.MAX_SAFE_INTEGER;
+        const favB = (typeof b.angka_produk_favorit === 'number' && b.angka_produk_favorit > 0) ? b.angka_produk_favorit : Number.MAX_SAFE_INTEGER;
         
         if (favA !== favB) {
           return favA - favB;
         }
         // Fallback for non-favorite products (sort alphabetically by name to maintain consistent order)
-        return a.nama.localeCompare(b.nama);
+        return namaA.localeCompare(namaB, undefined, { sensitivity: 'base' });
       }
       if (sortBy === 'price-asc') {
-        const priceA = a.harga_diskon || a.harga;
-        const priceB = b.harga_diskon || b.harga;
+        const priceA = Number(a.harga_diskon || a.harga) || 0;
+        const priceB = Number(b.harga_diskon || b.harga) || 0;
         return priceA - priceB;
       }
       if (sortBy === 'price-desc') {
-        const priceA = a.harga_diskon || a.harga;
-        const priceB = b.harga_diskon || b.harga;
+        const priceA = Number(a.harga_diskon || a.harga) || 0;
+        const priceB = Number(b.harga_diskon || b.harga) || 0;
         return priceB - priceA;
       }
       if (sortBy === 'name-asc') {
-        return a.nama.localeCompare(b.nama);
+        return namaA.localeCompare(namaB, undefined, { sensitivity: 'base' });
       }
       if (sortBy === 'name-desc') {
-        return b.nama.localeCompare(a.nama);
+        return namaB.localeCompare(namaA, undefined, { sensitivity: 'base' });
       }
       return 0;
     });
@@ -438,15 +497,20 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateCategoryMeta = async (categoryName: string, iconUrl: string, deskripsi: string) => {
     try {
-      let next = [...categoriesMeta];
-      const idx = next.findIndex((c) => c.nama.toLowerCase() === categoryName.toLowerCase());
+      const safeName = String(categoryName || '').trim();
+      if (!safeName) return;
+
+      let next = Array.isArray(categoriesMeta) ? [...categoriesMeta] : [];
+      const idx = next.findIndex(
+        (c) => c && typeof c.nama === 'string' && c.nama.trim().toLowerCase() === safeName.toLowerCase()
+      );
       if (idx >= 0) {
-        next[idx] = { nama: categoryName, iconUrl, deskripsi };
+        next[idx] = { nama: safeName, iconUrl: iconUrl || '', deskripsi: deskripsi || '' };
       } else {
-        next.push({ nama: categoryName, iconUrl, deskripsi });
+        next.push({ nama: safeName, iconUrl: iconUrl || '', deskripsi: deskripsi || '' });
       }
       await saveStoreDataToDb('categories', next, true);
-      showToast(`📁 Info kategori "${categoryName}" berhasil disimpan.`);
+      showToast(`📁 Info kategori "${safeName}" berhasil disimpan.`);
     } catch (e) {
       showToast(`❌ Gagal menyimpan kategori: ${e}`);
     }

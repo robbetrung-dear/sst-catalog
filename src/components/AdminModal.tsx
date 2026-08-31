@@ -142,13 +142,13 @@ export const AdminModal: React.FC = () => {
   };
 
   // Handle Password Change
-  const handleChangePasswordSubmit = (e: React.FormEvent) => {
+  const handleChangePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
       setPasswordMessage({ type: 'error', text: 'Konfirmasi password baru tidak cocok.' });
       return;
     }
-    const res = changeAdminPassword(oldPassword, newPassword);
+    const res = await changeAdminPassword(oldPassword, newPassword);
     if (res.success) {
       setPasswordMessage({ type: 'success', text: res.message });
       setOldPassword('');
@@ -1064,27 +1064,35 @@ export const AdminModal: React.FC = () => {
                       Kelola Icon & Deskripsi Kategori
                     </h4>
                     <p className="text-xs text-slate-500">
-                      Nama kategori disinkronisasi secara otomatis dari CSV produk. Anda dapat mengunggah URL icon/gambar dan deskripsi singkat untuk masing-masing kategori di bawah ini.
+                      Nama kategori disinkronisasi secara otomatis dari CSV produk ({allCategories.length} kategori terdeteksi). Anda dapat mengunggah URL icon/gambar dan deskripsi singkat untuk masing-masing kategori di bawah ini.
                     </p>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
                     {allCategories.map((catName) => {
-                      const meta = categoriesMeta.find(
-                        (c) => c.nama.toLowerCase() === catName.toLowerCase()
-                      );
+                      if (!catName || typeof catName !== 'string') return null;
+                      const trimmedCat = catName.trim();
+                      const lowerCat = trimmedCat.toLowerCase();
+                      const meta = Array.isArray(categoriesMeta)
+                        ? categoriesMeta.find(
+                            (c) => c && typeof c.nama === 'string' && c.nama.trim().toLowerCase() === lowerCat
+                          )
+                        : undefined;
                       const currentIcon = meta?.iconUrl || '';
                       const currentDesc = meta?.deskripsi || '';
+                      const count = Array.isArray(products)
+                        ? products.filter((p) => p && typeof p.kategori === 'string' && p.kategori.trim().toLowerCase() === lowerCat).length
+                        : 0;
 
                       return (
                         <div
-                          key={catName}
+                          key={trimmedCat}
                           className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3"
                         >
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-slate-900 text-sm">{catName}</span>
-                            <span className="text-xs text-slate-400">
-                              {products.filter((p) => p.kategori === catName).length} produk terdaftar
+                            <span className="font-bold text-slate-900 text-sm">{trimmedCat}</span>
+                            <span className="text-xs font-semibold px-2.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full">
+                              {count} produk terdaftar
                             </span>
                           </div>
 
@@ -1096,8 +1104,8 @@ export const AdminModal: React.FC = () => {
                               <input
                                 type="text"
                                 defaultValue={currentIcon}
-                                placeholder="https://res.cloudinary.com/..."
-                                onBlur={(e) => updateCategoryMeta(catName, e.target.value, currentDesc)}
+                                placeholder="https://images.unsplash.com/..."
+                                onBlur={(e) => updateCategoryMeta(trimmedCat, e.target.value, currentDesc)}
                                 className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs"
                               />
                             </div>
@@ -1109,7 +1117,7 @@ export const AdminModal: React.FC = () => {
                                 type="text"
                                 defaultValue={currentDesc}
                                 placeholder="Tuliskan spesifikasi umum kategori ini..."
-                                onBlur={(e) => updateCategoryMeta(catName, currentIcon, e.target.value)}
+                                onBlur={(e) => updateCategoryMeta(trimmedCat, currentIcon, e.target.value)}
                                 className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs"
                               />
                             </div>
@@ -1951,7 +1959,7 @@ export const AdminModal: React.FC = () => {
                                   const chunk = products.slice(i, i + chunkSize);
                                   const pBatch = writeBatch(db);
                                   chunk.forEach((p) => {
-                                    pBatch.set(doc(db, 'products', p.id), p);
+                                    pBatch.set(doc(db, 'products', String(p.id)), p);
                                   });
                                   await pBatch.commit();
                                 }

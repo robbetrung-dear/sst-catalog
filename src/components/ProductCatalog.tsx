@@ -84,8 +84,9 @@ export const ProductCatalog: React.FC = () => {
               Semua Kategori ({products.length})
             </button>
             {allCategories.map((cat) => {
-              const count = products.filter((p) => p.kategori === cat).length;
-              const isSelected = selectedCategory === cat;
+              if (!cat || typeof cat !== 'string') return null;
+              const count = products.filter((p) => p && typeof p.kategori === 'string' && p.kategori.trim().toLowerCase() === cat.trim().toLowerCase()).length;
+              const isSelected = selectedCategory.trim().toLowerCase() === cat.trim().toLowerCase();
               return (
                 <button
                   key={cat}
