@@ -106,7 +106,7 @@ export const HeroBanner: React.FC = () => {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Ketik nama baut, kawat las, merk, tipe gerinda, atau spesifikasi..."
+                  placeholder="Ketik nama produk, merk, tipe, alat, spesifikasi..."
                   className="w-full bg-transparent border-none outline-none text-sm text-slate-900 placeholder:text-slate-400 font-medium"
                 />
                 {searchQuery && (

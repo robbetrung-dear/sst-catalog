@@ -155,7 +155,7 @@ export const InfoTrendView: React.FC = () => {
 
       {/* Article Detail Reading Modal */}
       {selectedArticle && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 overflow-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
           <div className="relative bg-white w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-8 max-h-[90vh] flex flex-col">
             {/* Modal Header */}
             <div className="p-4 sm:p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
@@ -175,7 +175,7 @@ export const InfoTrendView: React.FC = () => {
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 sm:p-8 overflow-y-auto space-y-6">
+            <div className="p-6 sm:p-8 overflow-auto space-y-6">
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-snug">
                 {selectedArticle.judul}
               </h2>

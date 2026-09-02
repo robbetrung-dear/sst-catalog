@@ -214,7 +214,7 @@ export const AdminModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 overflow-auto bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
       <div
         id="admin-dashboard-modal"
         className="relative bg-white w-full max-w-6xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-4 max-h-[95vh] flex flex-col"
@@ -402,7 +402,7 @@ export const AdminModal: React.FC = () => {
             </div>
 
             {/* Main Content Area per Tab */}
-            <div className="flex-1 overflow-y-auto p-5 sm:p-8 bg-slate-50/50">
+            <div className="flex-1 overflow-auto p-5 sm:p-8 bg-slate-50/50">
               {/* TAB 1: Kelola Produk & CSV */}
               {adminTab === 'produk-csv' && (
                 <div className="space-y-8 animate-in fade-in duration-150">

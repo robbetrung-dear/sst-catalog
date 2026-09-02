@@ -42,7 +42,7 @@ export const Navbar: React.FC = () => {
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs transition-all">
       {/* Top emergency announcement bar */}
-      <div className="bg-[#135A62] text-white text-xs py-1.5 px-4 text-center font-medium flex items-center justify-between overflow-hidden">
+      <div className="bg-[#135A62] text-white text-xs py-1.5 px-4 text-center font-medium flex items-center justify-between">
         <div className="max-w-7xl mx-auto flex items-center justify-between w-full min-w-0">
           <span className="truncate flex-1 text-left sm:text-center">
             ✨ <strong>Katalog Resmi:</strong> Melayani Pesanan Grosir & Eceran Seluruh Indonesia
@@ -62,7 +62,7 @@ export const Navbar: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20 gap-2 sm:gap-3 overflow-hidden">
+        <div className="flex items-center justify-between h-16 sm:h-20 gap-2 sm:gap-3">
           {/* Logo & Store Name */}
           <div
             id="nav-brand-logo"
