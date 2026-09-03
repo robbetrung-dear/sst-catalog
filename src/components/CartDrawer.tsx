@@ -2,8 +2,6 @@ import React, { useState, useRef } from 'react';
 import { X, Trash2, ShoppingBag, Send, AlertTriangle, ArrowRight, Package, FileText } from 'lucide-react';
 import { useCatalog } from '../context/CatalogContext';
 import { formatRupiah } from '../utils/csvHelper';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 
 export const CartDrawer: React.FC = () => {
   const {
@@ -122,6 +120,10 @@ export const CartDrawer: React.FC = () => {
        // Wait a tick for React to show the loading state
        await new Promise(resolve => setTimeout(resolve, 100));
 
+       // Dynamically import jsPDF and autoTable to reduce initial load time
+       const { default: jsPDF } = await import('jspdf');
+       const { default: autoTable } = await import('jspdf-autotable');
+
        // Generate PDF using jsPDF
        const doc = new jsPDF({
          orientation: 'p',
@@ -197,8 +199,7 @@ export const CartDrawer: React.FC = () => {
        const startYTable = 45;
 
        // Use autoTable plugin
-       // @ts-ignore (since autoTable is added dynamically)
-       doc.autoTable({
+       autoTable(doc, {
          startY: startYTable,
          head: [['No.', 'SST DO (DELIVERY ORDER) & INVOICE', 'Jumlah', 'Harga', 'Disc.%', 'Total']],
          body: tableBody,
