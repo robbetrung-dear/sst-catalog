@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Layers, ArrowRight, Package, Search, Sparkles, Filter, SlidersHorizontal, ArrowUpDown } from 'lucide-react';
+import { Layers, ArrowRight, Package, Search, Sparkles, Filter, SlidersHorizontal, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCatalog } from '../context/CatalogContext';
 
 export const CategoryView: React.FC = () => {
@@ -9,10 +9,16 @@ export const CategoryView: React.FC = () => {
     products,
     setSelectedCategory,
     setActiveTab,
+    setSearchQuery,
+    setSortBy: setCatalogSortBy,
+    setSelectedBrand,
+    setSelectedType
   } = useCatalog();
 
   const [searchCat, setSearchCat] = useState('');
-  const [sortBy, setSortBy] = useState<'name-asc' | 'name-desc' | 'count-desc' | 'count-asc'>('count-desc');
+  const [sortBy, setSortBy] = useState<'name-asc' | 'name-desc' | 'count-desc' | 'count-asc' | 'relevance'>('count-desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const handleSelectCategory = (catName: string) => {
     if (!catName) return;
@@ -64,8 +70,10 @@ export const CategoryView: React.FC = () => {
     return enrichedCategories
       .filter((cat) => {
         if (!searchCat.trim()) return true;
-        const q = searchCat.toLowerCase().trim();
-        return cat.name.toLowerCase().includes(q) || cat.desc.toLowerCase().includes(q);
+        const queryWords = searchCat.toLowerCase().trim().split(/\s+/);
+        const textToSearch = `${cat.name} ${cat.desc}`.toLowerCase();
+        
+        return queryWords.every(qw => textToSearch.includes(qw));
       })
       .sort((a, b) => {
         if (sortBy === 'name-asc') {
@@ -74,7 +82,7 @@ export const CategoryView: React.FC = () => {
         if (sortBy === 'name-desc') {
           return b.name.localeCompare(a.name, undefined, { sensitivity: 'base' });
         }
-        if (sortBy === 'count-desc') {
+        if (sortBy === 'count-desc' || sortBy === 'relevance') {
           if (b.productCount !== a.productCount) {
             return b.productCount - a.productCount;
           }
@@ -89,6 +97,34 @@ export const CategoryView: React.FC = () => {
         return 0;
       });
   }, [enrichedCategories, searchCat, sortBy]);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchCat]);
+
+  const productSuggestion = useMemo(() => {
+    if (filteredCategories.length > 0 || !searchCat.trim() || sortBy !== 'relevance') {
+      return null;
+    }
+    
+    const queryWords = searchCat.toLowerCase().trim().split(/\s+/);
+    
+    // Find the first product that matches the query well
+    const match = products.find(p => {
+       const textToSearch = `${p.nama} ${p.merk} ${p.type} ${p.kategori} ${p.deskripsi}`.toLowerCase();
+       // Basic fuzzy: all query words exist in the text
+       return queryWords.every(qw => textToSearch.includes(qw));
+    });
+
+    if (match) {
+      return {
+         kategori: match.kategori || 'Semua',
+         merk: match.merk || 'Semua',
+         tipe: match.type || 'Semua',
+      };
+    }
+    return null;
+  }, [filteredCategories.length, searchCat, sortBy, products]);
 
   const totalProductsCount = Array.isArray(products) ? products.length : 0;
 
@@ -135,9 +171,13 @@ export const CategoryView: React.FC = () => {
           <span className="text-xs font-semibold text-slate-500 whitespace-nowrap hidden sm:inline">Urutkan:</span>
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) => {
+              setSortBy(e.target.value as any);
+              setCurrentPage(1);
+            }}
             className="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 outline-none focus:border-[#135A62] cursor-pointer"
           >
+            <option value="relevance">Produk Terkait (Pencarian Cerdas)</option>
             <option value="count-desc">Produk Terbanyak</option>
             <option value="count-asc">Produk Paling Sedikit</option>
             <option value="name-asc">Nama Kategori (A - Z)</option>
@@ -148,14 +188,16 @@ export const CategoryView: React.FC = () => {
 
       {/* Summary Badge */}
       <div className="flex items-center justify-between text-xs text-slate-500 px-1">
-        <span>Menampilkan <strong>{filteredCategories.length}</strong> dari <strong>{enrichedCategories.length}</strong> Kategori</span>
+        <span>
+          Menampilkan <strong>{Math.min((currentPage - 1) * itemsPerPage + 1, filteredCategories.length)}</strong> - <strong>{Math.min(currentPage * itemsPerPage, filteredCategories.length)}</strong> dari <strong>{filteredCategories.length}</strong> Kategori
+        </span>
         <span>Total <strong>{totalProductsCount}</strong> Produk Aktif</span>
       </div>
 
       {/* Categories Grid */}
       {filteredCategories.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {filteredCategories.map((cat) => (
+          {filteredCategories.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((cat) => (
             <div
               key={cat.name}
               id={`cat-card-${cat.name.replace(/[^a-zA-Z0-9]/g, '-')}`}
@@ -199,6 +241,43 @@ export const CategoryView: React.FC = () => {
             </div>
           ))}
         </div>
+      ) : productSuggestion ? (
+        <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-slate-200 shadow-xs space-y-6 max-w-lg mx-auto animate-in fade-in duration-300">
+          <div className="w-16 h-16 bg-[#135A62]/10 text-[#135A62] rounded-2xl flex items-center justify-center mx-auto">
+            <Sparkles className="w-8 h-8" />
+          </div>
+          <div className="space-y-3">
+            <h4 className="text-lg font-bold text-slate-800">Mungkin Maksud Anda Adalah Produk?</h4>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Produk yang Anda cari mungkin ada dalam kategori <strong className="text-slate-900">"{productSuggestion.kategori}"</strong>, merk <strong className="text-slate-900">"Semua Merk"</strong>, dan tipe <strong className="text-slate-900">"{productSuggestion.tipe}"</strong>.
+            </p>
+            <p className="text-sm text-slate-600">
+              Apakah Anda ingin melanjutkan pencarian ke halaman produk?
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <button
+              onClick={() => setSearchCat('')}
+              className="w-full sm:w-auto px-6 py-2.5 bg-slate-100 text-slate-600 text-sm font-semibold rounded-xl hover:bg-slate-200 transition-all cursor-pointer"
+            >
+              Tidak
+            </button>
+            <button
+              onClick={() => {
+                setSearchQuery(searchCat);
+                setCatalogSortBy('relevance');
+                setSelectedCategory(productSuggestion.kategori);
+                setSelectedBrand('Semua');
+                setSelectedType(productSuggestion.tipe);
+                setActiveTab('beranda');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="w-full sm:w-auto px-6 py-2.5 bg-[#135A62] text-white text-sm font-semibold rounded-xl hover:brightness-110 transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              Lanjutkan <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-xs space-y-4 max-w-md mx-auto">
           <div className="w-14 h-14 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center mx-auto">
@@ -215,6 +294,43 @@ export const CategoryView: React.FC = () => {
             className="px-4 py-2 bg-[#135A62] text-white text-xs font-semibold rounded-xl hover:brightness-110 transition-all cursor-pointer"
           >
             Reset Pencarian
+          </button>
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {filteredCategories.length > itemsPerPage && (
+        <div className="flex items-center justify-center gap-2 pt-6">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.ceil(filteredCategories.length / itemsPerPage) }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-10 h-10 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+                  currentPage === page 
+                    ? 'bg-[#135A62] text-white shadow-md' 
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredCategories.length / itemsPerPage), p + 1))}
+            disabled={currentPage === Math.ceil(filteredCategories.length / itemsPerPage)}
+            className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center"
+          >
+            <ChevronRight className="w-5 h-5" />
           </button>
         </div>
       )}

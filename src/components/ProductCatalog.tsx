@@ -1,10 +1,11 @@
-import React, { useRef } from 'react';
-import { Filter, ChevronLeft, ChevronRight, RotateCcw, Search, Sparkles, Grid, SlidersHorizontal } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Filter, ChevronLeft, ChevronRight, RotateCcw, Search, Sparkles, LayoutGrid, List, ShoppingCart } from 'lucide-react';
 import { useCatalog } from '../context/CatalogContext';
 import { ProductCard } from './ProductCard';
 
 export const ProductCatalog: React.FC = () => {
   const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const scrollCategories = (direction: 'left' | 'right') => {
     if (categoryScrollRef.current) {
@@ -37,7 +38,23 @@ export const ProductCatalog: React.FC = () => {
     setCurrentPage,
     totalPages,
     itemsPerPage,
+    setSelectedProductDetail,
+    addToCart,
   } = useCatalog();
+
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newSort = e.target.value as any;
+    setSortBy(newSort);
+    
+    if (newSort === 'relevance' && searchQuery.trim() && filteredProducts.length > 0) {
+      // Auto-filter based on top result
+      const topMatch = filteredProducts[0];
+      if (topMatch.kategori) setSelectedCategory(topMatch.kategori);
+      // We'll leave brand to 'Semua' and auto set type if it matches tightly
+      setSelectedBrand('Semua');
+      if (topMatch.type) setSelectedType(topMatch.type);
+    }
+  };
 
   const handleResetFilters = () => {
     setSelectedCategory('Semua');
@@ -159,10 +176,11 @@ export const ProductCatalog: React.FC = () => {
             <select
               id="filter-sort-select"
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={handleSortChange}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-800 font-medium focus:ring-2 focus:ring-[#135A62]/30 focus:border-[#135A62] outline-none"
             >
               <option value="popular">⭐ Paling Favorit / Rekomendasi</option>
+              <option value="relevance">🔍 Produk Terkait (Pencarian Cerdas)</option>
               <option value="price-asc">💵 Harga: Termurah ke Termahal</option>
               <option value="price-desc">💰 Harga: Termahal ke Termurah</option>
               <option value="name-asc">🔤 Nama Produk: A ke Z</option>
@@ -191,32 +209,114 @@ export const ProductCatalog: React.FC = () => {
         </div>
 
         {/* Results summary header */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100 text-xs text-slate-600">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-slate-100 text-xs text-slate-600">
+          <div className="flex items-center flex-wrap gap-2">
             <span className="font-semibold text-slate-900">
               {filteredProducts.length > 0
                 ? `Menampilkan ${startIndex} - ${endIndex} dari ${filteredProducts.length} produk ditemukan`
                 : 'Tidak ada produk yang cocok'}
             </span>
-            <span className="text-slate-400">|</span>
+            <span className="text-slate-400 hidden sm:inline">|</span>
             <span className="text-slate-500">
               Total Database: <strong>{products.length}</strong> produk
             </span>
           </div>
 
-          <div className="text-xs text-slate-500 font-medium">
-            Halaman <strong>{currentPage}</strong> dari <strong>{totalPages}</strong> (Paginasi 10 per halaman)
+          <div className="flex items-center gap-4">
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-md transition-colors ${
+                  viewMode === 'grid' ? 'bg-white text-[#135A62] shadow-sm font-semibold' : 'text-slate-500 hover:text-slate-700'
+                }`}
+                title="Tampilan Grid"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-1.5 rounded-md transition-colors ${
+                  viewMode === 'list' ? 'bg-white text-[#135A62] shadow-sm font-semibold' : 'text-slate-500 hover:text-slate-700'
+                }`}
+                title="Tampilan List"
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="text-xs text-slate-500 font-medium">
+              Halaman <strong>{currentPage}</strong> dari <strong>{totalPages}</strong>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Product Grid */}
+      {/* Product Grid / List */}
       {paginatedProducts.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
-          {paginatedProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
+            {paginatedProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {paginatedProducts.map((product) => {
+              const hasDiscount = Boolean(product.harga_diskon && product.harga_diskon < product.harga);
+              const activePrice = hasDiscount ? product.harga_diskon! : product.harga;
+              const isAvailable = product.jumlah_stok > 0;
+              
+              return (
+                <div 
+                  key={product.id}
+                  className="group bg-white rounded-xl border border-slate-200/90 hover:border-[#135A62]/40 shadow-xs hover:shadow-md transition-all p-3 flex items-center justify-between gap-4 cursor-pointer"
+                  onClick={() => setSelectedProductDetail(product)}
+                >
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <img 
+                      src={product.url_foto || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80'} 
+                      alt={product.nama} 
+                      className="w-12 h-12 rounded-lg object-cover bg-slate-100 shrink-0"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src =
+                          'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80';
+                      }}
+                    />
+                    <div className="min-w-0">
+                      <h4 className="text-sm font-bold text-slate-900 truncate group-hover:text-[#135A62] transition-colors">
+                        {product.nama}
+                      </h4>
+                      <p className="text-xs text-slate-500 truncate">{product.merk} • {product.kategori}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 shrink-0">
+                    <div className="text-right hidden sm:block">
+                      <span className="text-sm font-black text-[#135A62]">
+                        Rp {activePrice.toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isAvailable) addToCart(product, 1);
+                      }}
+                      disabled={!isAvailable}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors shadow-sm ${
+                        isAvailable
+                          ? 'bg-[#135A62] text-white hover:brightness-110'
+                          : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      }`}
+                      title="Tambah ke Keranjang"
+                    >
+                      <ShoppingCart className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
       ) : (
         /* Empty State */
         <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 max-w-lg mx-auto space-y-4">

@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { X, Trash2, ShoppingBag, Send, AlertTriangle, ArrowRight, Package } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Trash2, ShoppingBag, Send, AlertTriangle, ArrowRight, Package, FileText } from 'lucide-react';
 import { useCatalog } from '../context/CatalogContext';
 import { formatRupiah } from '../utils/csvHelper';
+import { InvoiceTemplate } from './InvoiceTemplate';
+import html2canvas from 'html2canvas';
 
 export const CartDrawer: React.FC = () => {
   const {
@@ -18,13 +20,25 @@ export const CartDrawer: React.FC = () => {
 
   const [customerName, setCustomerName] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
-  const [orderNotes, setOrderNotes] = useState('');
+  const [customerCode, setCustomerCode] = useState('Pelanggan Tunai');
+  const [isCodeFocused, setIsCodeFocused] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const invoiceRef = useRef<HTMLDivElement>(null);
 
   if (!isCartOpen) return null;
 
-  const handleCheckoutWhatsApp = () => {
-    if (cart.length === 0) return;
+  const validateForm = () => {
+    if (!customerName.trim() || !customerAddress.trim() || !customerCode.trim()) {
+      setFormError('Semua Data Pemesan (Nama, Alamat, dan Nomor Pelanggan) wajib diisi.');
+      return false;
+    }
+    setFormError('');
+    return true;
+  };
 
+  const getCheckoutMessage = (includeInvoiceRef = false) => {
     // Generate formatted item lines
     const itemLines = cart
       .map((item, index) => {
@@ -40,9 +54,6 @@ export const CartDrawer: React.FC = () => {
       })
       .join('\n\n');
 
-    const cleanPhone = storeProfile.nomorWhatsApp.replace(/[^0-9]/g, '');
-
-    // Default template fallback or custom
     let message = storeProfile.waTemplate ||
       'Halo Admin {NAMA_TOKO}, saya ingin memesan produk dari katalog website:\n\n{DAFTAR_PESANAN}\n\n*Total Estimasi:* {TOTAL_HARGA}\n\n*Data Pemesan:*\n- Nama: {NAMA}\n- Alamat / Kota: {ALAMAT}\n- Catatan Khusus: {CATATAN}\n\nMohon konfirmasi ketersediaan stok & total ongkir. Terima kasih!';
 
@@ -50,14 +61,94 @@ export const CartDrawer: React.FC = () => {
       .replace(/{NAMA_TOKO}/g, storeProfile.namaToko)
       .replace(/{DAFTAR_PESANAN}/g, itemLines)
       .replace(/{TOTAL_HARGA}/g, formatRupiah(totalCartPrice))
-      .replace(/{NAMA}/g, customerName.trim() || 'Pelanggan Web')
-      .replace(/{ALAMAT}/g, customerAddress.trim() || 'Mohon konfirmasi saat chat')
-      .replace(/{CATATAN}/g, orderNotes.trim() || 'Standar');
+      .replace(/{NAMA}/g, customerName.trim())
+      .replace(/{ALAMAT}/g, customerAddress.trim())
+      .replace(/{CATATAN}/g, customerCode.trim());
 
+    if (includeInvoiceRef) {
+      message = `Halo Admin ${storeProfile.namaToko}, saya telah membuat Draft Invoice untuk pesanan saya.\n\n*Nama:* ${customerName}\n*Total Estimasi:* ${formatRupiah(totalCartPrice)}\n\nSaya akan melampirkan file draft invoice (PNG & CSV) yang telah diunduh pada pesan ini.\n\nBerikut adalah rincian pesanannya:\n\n` + message;
+    }
+
+    return message;
+  };
+
+  const handleCheckoutWhatsApp = () => {
+    if (!validateForm()) return;
+    if (cart.length === 0) return;
+
+    const message = getCheckoutMessage(false);
+    const cleanPhone = storeProfile.nomorWhatsApp.replace(/[^0-9]/g, '');
     const encodedText = encodeURIComponent(message);
     const waUrl = `https://wa.me/${cleanPhone}?text=${encodedText}`;
 
     window.open(waUrl, '_blank');
+  };
+
+  const generateCSV = () => {
+    let csv = "No.,SST DO (DELIVERY ORDER) & INVOICE,Jumlah,Harga,Disc.%,Total\n";
+    cart.forEach((item, index) => {
+       const hasDiscount = Boolean(item.product.harga_diskon && item.product.harga_diskon < item.product.harga);
+       const activePrice = hasDiscount ? item.product.harga_diskon! : item.product.harga;
+       const lineTotal = activePrice * item.quantity;
+       let discPercent = 0;
+       if (hasDiscount && item.product.harga > 0) {
+          discPercent = Math.round(((item.product.harga - activePrice) / item.product.harga) * 100);
+       }
+       
+       const cleanName = `"${item.product.nama.replace(/"/g, '""')}"`;
+       csv += `${index + 1},${cleanName},${item.quantity},${activePrice},${discPercent > 0 ? discPercent + '%' : ''},${lineTotal}\n`;
+    });
+    
+    csv += `\n,,,,,Jumlah Total PO:,${totalCartPrice}\n`;
+    csv += `,,,,,Tax Rate:,11%\n`;
+    csv += `,,,,,Tax:,${(totalCartPrice * 0.11).toFixed(2)}\n`;
+    csv += `,,,,,TOTAL:,${totalCartPrice}\n`;
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Invoice_SST_${customerName.replace(/\s+/g, '_')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCheckoutWhatsAppWithInvoice = async () => {
+    if (!validateForm()) return;
+    if (cart.length === 0) return;
+
+    setIsGenerating(true);
+    try {
+       if (invoiceRef.current) {
+          const canvas = await html2canvas(invoiceRef.current, {
+             scale: 2,
+             useCORS: true,
+             backgroundColor: '#ffffff'
+          });
+          
+          const image = canvas.toDataURL("image/png");
+          const link = document.createElement("a");
+          link.href = image;
+          link.download = `Invoice_SST_${customerName.replace(/\s+/g, '_')}.png`;
+          link.click();
+          
+          generateCSV();
+          
+          setTimeout(() => {
+             const message = getCheckoutMessage(true);
+             const cleanPhone = storeProfile.nomorWhatsApp.replace(/[^0-9]/g, '');
+             const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+             window.open(url, '_blank');
+          }, 1000);
+       }
+    } catch (err) {
+       console.error("Failed to generate invoice", err);
+       alert("Gagal menghasilkan invoice. Silakan coba checkout biasa.");
+    } finally {
+       setIsGenerating(false);
+    }
   };
 
   return (
@@ -160,9 +251,18 @@ export const CartDrawer: React.FC = () => {
                         >
                           -
                         </button>
-                        <span className="px-2.5 py-0.5 text-xs font-bold text-slate-900 min-w-6 text-center">
-                          {item.quantity}
-                        </span>
+                        <input
+                          type="number"
+                          min="1"
+                          max={item.product.jumlah_stok || 9999}
+                          value={item.quantity}
+                          onChange={(e) => {
+                             let val = parseInt(e.target.value) || 1;
+                             if (val < 1) val = 1;
+                             updateCartQuantity(item.product.id, val);
+                          }}
+                          className="w-10 px-1 py-0.5 text-xs font-bold text-slate-900 text-center outline-none bg-transparent appearance-none"
+                        />
                         <button
                           onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)}
                           className="px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-200 font-bold"
@@ -197,11 +297,17 @@ export const CartDrawer: React.FC = () => {
             {/* Customer Inputs */}
             <div className="space-y-2 text-xs">
               <div className="font-semibold text-slate-700 flex items-center justify-between">
-                <span>Data Pemesan (Opsional):</span>
+                <span>Data Pemesan <span className="text-red-500">*</span></span>
                 <button onClick={clearCart} className="text-red-600 hover:underline font-normal">
                   Kosongkan Keranjang
                 </button>
               </div>
+              {formError && (
+                <div className="p-2 bg-red-50 text-red-600 text-xs rounded border border-red-100 flex items-start gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>{formError}</span>
+                </div>
+              )}
               <input
                 type="text"
                 placeholder="Nama Anda / Perusahaan (contoh: CV Bintang Teknik)"
@@ -216,13 +322,30 @@ export const CartDrawer: React.FC = () => {
                 onChange={(e) => setCustomerAddress(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#135A62]"
               />
-              <input
-                type="text"
-                placeholder="Catatan Khusus (contoh: Butuh faktur pajak / kirim via JTR)"
-                value={orderNotes}
-                onChange={(e) => setOrderNotes(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#135A62]"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={customerCode}
+                  onFocus={() => {
+                    if (customerCode === 'Pelanggan Tunai') setCustomerCode('');
+                    setIsCodeFocused(true);
+                  }}
+                  onBlur={() => {
+                    if (!customerCode.trim()) setCustomerCode('Pelanggan Tunai');
+                    setIsCodeFocused(false);
+                  }}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                    setCustomerCode(val);
+                  }}
+                  className={`w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#135A62] ${customerCode === 'Pelanggan Tunai' ? 'font-bold' : 'font-bold tracking-widest'}`}
+                />
+                {customerCode === 'Pelanggan Tunai' && !isCodeFocused && (
+                  <span className="absolute left-28 top-[9px] text-slate-400 text-[10px] pointer-events-none">
+                    (atau Klik dan Ketikan Nomor Pelanggan)
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Total Price breakdown */}
@@ -237,16 +360,46 @@ export const CartDrawer: React.FC = () => {
             </div>
 
             {/* Checkout WhatsApp Button */}
-            <button
-              id="btn-checkout-whatsapp"
-              onClick={handleCheckoutWhatsApp}
-              className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 select-none"
-            >
-              <Send className="w-4 h-4" />
-              <span>Checkout WhatsApp Admin ({storeProfile.nomorWhatsApp})</span>
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                id="btn-checkout-whatsapp"
+                onClick={handleCheckoutWhatsApp}
+                className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 select-none"
+              >
+                <Send className="w-4 h-4" />
+                <span>Checkout WhatsApp Admin ({storeProfile.nomorWhatsApp})</span>
+              </button>
+              <button
+                onClick={handleCheckoutWhatsAppWithInvoice}
+                disabled={isGenerating}
+                className="w-full py-3.5 px-4 rounded-xl bg-[#135A62] hover:bg-[#0e444a] text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 select-none disabled:opacity-70"
+              >
+                {isGenerating ? (
+                  <span className="flex items-center gap-2 animate-pulse">
+                    Mempersiapkan File...
+                  </span>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4" />
+                    <span>Checkout Whatsapp With Invoice draft</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
+      </div>
+      
+      {/* Hidden Invoice Component for Capture */}
+      <div className="absolute top-0 left-0 -z-50 pointer-events-none opacity-0">
+        <InvoiceTemplate 
+          ref={invoiceRef}
+          cart={cart}
+          customerName={customerName}
+          customerAddress={customerAddress}
+          customerCode={customerCode}
+          totalPrice={totalCartPrice}
+        />
       </div>
     </div>
   );

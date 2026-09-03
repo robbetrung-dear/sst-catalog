@@ -100,7 +100,7 @@ export const Navbar: React.FC = () => {
           </div>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center space-x-1 font-medium text-sm text-slate-700 shrink-0">
+          <nav className="hidden xl:flex items-center space-x-1 font-medium text-sm text-slate-700 shrink-0">
             {navItems.map((item) => {
               const isActive = activeTab === item.id;
               return (
@@ -192,7 +192,7 @@ export const Navbar: React.FC = () => {
             <button
               id="nav-mobile-toggle"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 rounded-lg text-slate-700 hover:bg-slate-100 lg:hidden ml-1"
+              className="p-2 rounded-lg text-slate-700 hover:bg-slate-100 xl:hidden ml-1"
             >
               {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -202,7 +202,7 @@ export const Navbar: React.FC = () => {
 
       {/* Mobile Menu Dropdown */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden bg-white border-t border-slate-200 px-4 pt-3 pb-6 space-y-2 shadow-lg animate-in slide-in-from-top-2 duration-150">
+        <div className="xl:hidden bg-white border-t border-slate-200 px-4 pt-3 pb-6 space-y-2 shadow-lg animate-in slide-in-from-top-2 duration-150">
           <div className="mb-3">
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />

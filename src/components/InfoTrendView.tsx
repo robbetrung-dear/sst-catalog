@@ -7,17 +7,30 @@ export const InfoTrendView: React.FC = () => {
   const { infoTrends } = useCatalog();
   const [searchTrendQuery, setSearchTrendQuery] = useState('');
   const [selectedArticle, setSelectedArticle] = useState<InfoTrendItem | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const filteredArticles = useMemo(() => {
-    if (!searchTrendQuery.trim()) return infoTrends;
-    const q = searchTrendQuery.toLowerCase().trim();
-    return infoTrends.filter(
-      (item) =>
-        item.judul.toLowerCase().includes(q) ||
-        item.ringkasan.toLowerCase().includes(q) ||
-        item.tag.toLowerCase().includes(q)
-    );
+    let result = infoTrends;
+    if (searchTrendQuery.trim()) {
+      const queryWords = searchTrendQuery.toLowerCase().trim().split(/\s+/);
+      result = infoTrends.filter(
+        (item) => {
+          const textToSearch = `${item.judul} ${item.ringkasan} ${item.tag}`.toLowerCase();
+          return queryWords.every(qw => textToSearch.includes(qw));
+        }
+      );
+    }
+    return result;
   }, [infoTrends, searchTrendQuery]);
+
+  const paginatedArticles = useMemo(() => {
+    return filteredArticles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filteredArticles, currentPage, itemsPerPage]);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTrendQuery]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8 animate-in fade-in duration-200">
@@ -59,9 +72,9 @@ export const InfoTrendView: React.FC = () => {
       </div>
 
       {/* Articles Grid */}
-      {filteredArticles.length > 0 ? (
+      {paginatedArticles.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredArticles.map((article) => (
+          {paginatedArticles.map((article) => (
             <article
               key={article.id}
               className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col justify-between group"
@@ -149,6 +162,45 @@ export const InfoTrendView: React.FC = () => {
             className="text-xs text-[#135A62] font-semibold underline"
           >
             Tampilkan semua artikel
+          </button>
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {filteredArticles.length > itemsPerPage && (
+        <div className="flex items-center justify-center gap-2 pt-6">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center"
+          >
+            <span className="sr-only">Previous Page</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.ceil(filteredArticles.length / itemsPerPage) }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-10 h-10 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+                  currentPage === page 
+                    ? 'bg-[#135A62] text-white shadow-md' 
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredArticles.length / itemsPerPage), p + 1))}
+            disabled={currentPage === Math.ceil(filteredArticles.length / itemsPerPage)}
+            className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center"
+          >
+            <span className="sr-only">Next Page</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
           </button>
         </div>
       )}

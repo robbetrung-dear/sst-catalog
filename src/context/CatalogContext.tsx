@@ -12,6 +12,25 @@ import {
   initializeFirebaseData 
 } from '../firebase/db';
 
+const levenshtein = (a: string, b: string): number => {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null));
+  for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
+  for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
+  for (let j = 1; j <= b.length; j++) {
+    for (let i = 1; i <= a.length; i++) {
+      const indicator = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1,
+        matrix[j - 1][i] + 1,
+        matrix[j - 1][i - 1] + indicator
+      );
+    }
+  }
+  return matrix[b.length][a.length];
+};
+
 interface CatalogContextType {
   // Data
   products: Product[];
@@ -33,8 +52,8 @@ interface CatalogContextType {
   setSelectedType: (type: string) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  sortBy: 'popular' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc';
-  setSortBy: (sort: 'popular' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc') => void;
+  sortBy: 'relevance' | 'popular' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc';
+  setSortBy: (sort: 'relevance' | 'popular' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc') => void;
   currentPage: number;
   setCurrentPage: (page: number) => void;
   itemsPerPage: number;
@@ -131,7 +150,7 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [selectedBrand, setSelectedBrand] = useState<string>('Semua');
   const [selectedType, setSelectedType] = useState<string>('Semua');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [sortBy, setSortBy] = useState<'popular' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc'>('popular');
+  const [sortBy, setSortBy] = useState<'relevance' | 'popular' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc'>('popular');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 10; // strictly 10 products per page as requested
 
@@ -272,72 +291,113 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const filteredProducts = useMemo(() => {
     if (!Array.isArray(products)) return [];
 
-    return products.filter((p) => {
-      if (!p) return false;
+    let result = products.map((p) => {
+      if (!p) return { product: p, score: 0, valid: false };
       const nama = typeof p.nama === 'string' ? p.nama : '';
       const merk = typeof p.merk === 'string' ? p.merk : '';
       const type = typeof p.type === 'string' ? p.type : '';
       const kategori = typeof p.kategori === 'string' ? p.kategori : '';
       const deskripsi = typeof p.deskripsi === 'string' ? p.deskripsi : '';
 
-      // Search matches name, merk, type, kategori, deskripsi
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchName = nama.toLowerCase().includes(q);
-        const matchMerk = merk.toLowerCase().includes(q);
-        const matchType = type.toLowerCase().includes(q);
-        const matchKat = kategori.toLowerCase().includes(q);
-        const matchDesc = deskripsi.toLowerCase().includes(q);
-        if (!matchName && !matchMerk && !matchType && !matchKat && !matchDesc) {
-          return false;
-        }
-      }
+      let searchScore = 0;
+      let isValid = true;
 
       // Filter Category
       if (selectedCategory && selectedCategory !== 'Semua') {
         if (kategori.trim().toLowerCase() !== selectedCategory.trim().toLowerCase()) {
-          return false;
+          isValid = false;
         }
       }
 
       // Filter Brand
-      if (selectedBrand && selectedBrand !== 'Semua') {
+      if (isValid && selectedBrand && selectedBrand !== 'Semua') {
         if (merk.trim().toLowerCase() !== selectedBrand.trim().toLowerCase()) {
-          return false;
+          isValid = false;
         }
       }
 
       // Filter Type
-      if (selectedType && selectedType !== 'Semua') {
+      if (isValid && selectedType && selectedType !== 'Semua') {
         if (type.trim().toLowerCase() !== selectedType.trim().toLowerCase()) {
-          return false;
+          isValid = false;
         }
       }
 
-      return true;
-    }).sort((a, b) => {
-      if (!a || !b) return 0;
-      const namaA = typeof a.nama === 'string' ? a.nama : '';
-      const namaB = typeof b.nama === 'string' ? b.nama : '';
+      // Smart Search matches
+      if (isValid && searchQuery.trim()) {
+        const queryWords = searchQuery.toLowerCase().trim().split(/\s+/);
+        const fullText = `${nama} ${merk} ${type} ${kategori} ${deskripsi}`.toLowerCase();
+        const targetWords = fullText.split(/[\s,.-]+/);
 
+        let allWordsMatched = true;
+        for (const qw of queryWords) {
+          let bestMatchDist = Infinity;
+          let exactMatch = false;
+          
+          if (fullText.includes(qw)) {
+             bestMatchDist = 0;
+             exactMatch = true;
+          } else {
+             for (const tw of targetWords) {
+               if (Math.abs(tw.length - qw.length) <= 2) {
+                 const dist = levenshtein(qw, tw);
+                 if (dist < bestMatchDist) bestMatchDist = dist;
+               }
+             }
+          }
+          
+          const maxAllowedDist = qw.length <= 3 ? 0 : (qw.length <= 5 ? 1 : 2);
+          
+          if (bestMatchDist <= maxAllowedDist) {
+             searchScore += exactMatch ? 10 : (5 - bestMatchDist); 
+          } else {
+             allWordsMatched = false;
+             break;
+          }
+        }
+
+        if (!allWordsMatched) {
+          isValid = false;
+        }
+        
+        if (fullText.includes(searchQuery.toLowerCase().trim())) {
+           searchScore += 50;
+        }
+      }
+
+      return { product: p, score: searchScore, valid: isValid };
+    }).filter(item => item.valid);
+
+    return result.sort((a, b) => {
+      const prodA = a.product;
+      const prodB = b.product;
+      if (!prodA || !prodB) return 0;
+      const namaA = typeof prodA.nama === 'string' ? prodA.nama : '';
+      const namaB = typeof prodB.nama === 'string' ? prodB.nama : '';
+
+      if (sortBy === 'relevance') {
+         if (b.score !== a.score) {
+           return b.score - a.score;
+         }
+         return namaA.localeCompare(namaB, undefined, { sensitivity: 'base' });
+      }
       if (sortBy === 'popular') {
-        const favA = (typeof a.angka_produk_favorit === 'number' && a.angka_produk_favorit > 0) ? a.angka_produk_favorit : Number.MAX_SAFE_INTEGER;
-        const favB = (typeof b.angka_produk_favorit === 'number' && b.angka_produk_favorit > 0) ? b.angka_produk_favorit : Number.MAX_SAFE_INTEGER;
+        const favA = (typeof prodA.angka_produk_favorit === 'number' && prodA.angka_produk_favorit > 0) ? prodA.angka_produk_favorit : Number.MAX_SAFE_INTEGER;
+        const favB = (typeof prodB.angka_produk_favorit === 'number' && prodB.angka_produk_favorit > 0) ? prodB.angka_produk_favorit : Number.MAX_SAFE_INTEGER;
         
         if (favA !== favB) {
           return favA - favB;
         }
-        // Fallback for non-favorite products (sort alphabetically by name to maintain consistent order)
         return namaA.localeCompare(namaB, undefined, { sensitivity: 'base' });
       }
       if (sortBy === 'price-asc') {
-        const priceA = Number(a.harga_diskon || a.harga) || 0;
-        const priceB = Number(b.harga_diskon || b.harga) || 0;
+        const priceA = Number(prodA.harga_diskon || prodA.harga) || 0;
+        const priceB = Number(prodB.harga_diskon || prodB.harga) || 0;
         return priceA - priceB;
       }
       if (sortBy === 'price-desc') {
-        const priceA = Number(a.harga_diskon || a.harga) || 0;
-        const priceB = Number(b.harga_diskon || b.harga) || 0;
+        const priceA = Number(prodA.harga_diskon || prodA.harga) || 0;
+        const priceB = Number(prodB.harga_diskon || prodB.harga) || 0;
         return priceB - priceA;
       }
       if (sortBy === 'name-asc') {
@@ -347,7 +407,7 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return namaB.localeCompare(namaA, undefined, { sensitivity: 'base' });
       }
       return 0;
-    });
+    }).map(item => item.product);
   }, [products, searchQuery, selectedCategory, selectedBrand, selectedType, sortBy]);
 
   // Reset page when filter changes
