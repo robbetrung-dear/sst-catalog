@@ -2,8 +2,8 @@ import React, { useState, useRef } from 'react';
 import { X, Trash2, ShoppingBag, Send, AlertTriangle, ArrowRight, Package, FileText } from 'lucide-react';
 import { useCatalog } from '../context/CatalogContext';
 import { formatRupiah } from '../utils/csvHelper';
-import { InvoiceTemplate } from './InvoiceTemplate';
-import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 export const CartDrawer: React.FC = () => {
   const {
@@ -24,8 +24,6 @@ export const CartDrawer: React.FC = () => {
   const [isCodeFocused, setIsCodeFocused] = useState(false);
   const [formError, setFormError] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-
-  const invoiceRef = useRef<HTMLDivElement>(null);
 
   if (!isCartOpen) return null;
 
@@ -66,7 +64,7 @@ export const CartDrawer: React.FC = () => {
       .replace(/{CATATAN}/g, customerCode.trim());
 
     if (includeInvoiceRef) {
-      message = `Halo Admin ${storeProfile.namaToko}, saya telah membuat Draft Invoice untuk pesanan saya.\n\n*Nama:* ${customerName}\n*Total Estimasi:* ${formatRupiah(totalCartPrice)}\n\nSaya akan melampirkan file draft invoice (PNG & CSV) yang telah diunduh pada pesan ini.\n\nBerikut adalah rincian pesanannya:\n\n` + message;
+      message = `Halo Admin ${storeProfile.namaToko}, saya telah membuat Draft Invoice untuk pesanan saya.\n\n*Nama:* ${customerName}\n*Total Estimasi:* ${formatRupiah(totalCartPrice)}\n\nSaya akan melampirkan file draft invoice (PDF & CSV) yang telah diunduh pada pesan ini.\n\nBerikut adalah rincian pesanannya:\n\n` + message;
     }
 
     return message;
@@ -124,48 +122,170 @@ export const CartDrawer: React.FC = () => {
        // Wait a tick for React to show the loading state
        await new Promise(resolve => setTimeout(resolve, 100));
 
-       const wrapper = document.getElementById('invoice-capture-wrapper');
-       if (wrapper) {
-           wrapper.style.top = '0px';
-           wrapper.style.zIndex = '-9999';
-       }
+       // Generate PDF using jsPDF
+       const doc = new jsPDF({
+         orientation: 'p',
+         unit: 'mm',
+         format: 'a4'
+       });
 
-       if (invoiceRef.current) {
-          const canvas = await html2canvas(invoiceRef.current, {
-             scale: 2,
-             useCORS: true,
-             backgroundColor: '#ffffff',
-             logging: false
-          });
-          
-          if (wrapper) {
-              wrapper.style.top = '100vh';
-          }
+       const now = new Date();
+       const pad = (n: number) => n.toString().padStart(2, '0');
+       const yyyy = now.getFullYear();
+       const mm = pad(now.getMonth() + 1);
+       const dd = pad(now.getDate());
+       const hh = pad(now.getHours());
+       const min = pad(now.getMinutes());
+       
+       const kode = (customerCode && customerCode !== 'Pelanggan Tunai') ? customerCode : 'TUNAI';
+       const invoiceNumber = `${kode}/${yyyy}/${mm}/${dd}/${hh}/${min}`;
+       const dateFormatted = `${dd}/${mm}/${yyyy}`;
 
-          const image = canvas.toDataURL("image/png");
-          const link = document.createElement("a");
-          link.href = image;
-          link.download = `Invoice_SST_${customerName.replace(/\s+/g, '_')}.png`;
-          link.click();
-          
-          generateCSV();
-          
-          setTimeout(() => {
-             const message = getCheckoutMessage(true);
-             const cleanPhone = storeProfile.nomorWhatsApp.replace(/[^0-9]/g, '');
-             const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-             window.open(url, '_blank');
-          }, 1000);
-       }
+       // Header Text
+       doc.setFontSize(10);
+       doc.setFont('helvetica', 'bold');
+       doc.text('No. INV.', 14, 20);
+       doc.text(':', 35, 20);
+       doc.setFont('helvetica', 'normal');
+       doc.text(invoiceNumber, 38, 20);
+
+       doc.setFont('helvetica', 'bold');
+       doc.text('Yth. Kpd.', 14, 26);
+       doc.text(':', 35, 26);
+       doc.setFont('helvetica', 'normal');
+       doc.text(customerName, 38, 26);
+
+       doc.setFont('helvetica', 'bold');
+       doc.text('Alamat', 14, 32);
+       doc.text(':', 35, 32);
+       doc.setFont('helvetica', 'normal');
+       
+       // Handle long address
+       const addressLines = doc.splitTextToSize(customerAddress, 100);
+       doc.text(addressLines, 38, 32);
+
+       // Company Logo/Text (Right side)
+       doc.setFontSize(36);
+       doc.setFont('times', 'bold');
+       doc.setTextColor(139, 90, 43); // #8B5A2B
+       doc.text('SST', 196, 28, { align: 'right' });
+
+       // Reset colors
+       doc.setTextColor(0, 0, 0);
+
+       // Generate Table Body
+       const tableBody = cart.map((item, index) => {
+         const hasDiscount = Boolean(item.product.harga_diskon && item.product.harga_diskon < item.product.harga);
+         const activePrice = hasDiscount ? item.product.harga_diskon! : item.product.harga;
+         const lineTotal = activePrice * item.quantity;
+         
+         let discPercent = 0;
+         if (hasDiscount && item.product.harga > 0) {
+            discPercent = Math.round(((item.product.harga - activePrice) / item.product.harga) * 100);
+         }
+
+         return [
+           index + 1,
+           item.product.nama.toUpperCase(),
+           item.quantity,
+           activePrice.toLocaleString('id-ID'),
+           discPercent > 0 ? `${discPercent}%` : '',
+           lineTotal.toLocaleString('id-ID')
+         ];
+       });
+
+       const startYTable = 45;
+
+       // Use autoTable plugin
+       // @ts-ignore (since autoTable is added dynamically)
+       doc.autoTable({
+         startY: startYTable,
+         head: [['No.', 'SST DO (DELIVERY ORDER) & INVOICE', 'Jumlah', 'Harga', 'Disc.%', 'Total']],
+         body: tableBody,
+         theme: 'grid',
+         headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
+         styles: { font: 'helvetica', fontSize: 9 },
+         columnStyles: {
+           0: { halign: 'center', cellWidth: 12 },
+           1: { halign: 'left' },
+           2: { halign: 'center', cellWidth: 20 },
+           3: { halign: 'right', cellWidth: 30 },
+           4: { halign: 'center', cellWidth: 20 },
+           5: { halign: 'right', cellWidth: 35 }
+         }
+       });
+
+       // @ts-ignore
+       const finalY = doc.lastAutoTable.finalY + 10;
+       
+       // Footer Left (Signatures)
+       doc.setFont('helvetica', 'bold');
+       doc.setFontSize(10);
+       doc.text('Tanggal:', 14, finalY);
+       doc.setFont('helvetica', 'normal');
+       doc.text(dateFormatted, 32, finalY);
+
+       doc.text('Disetujui,', 14, finalY + 15);
+       doc.text('(Admin)', 14, finalY + 35);
+
+       doc.text('Diorder oleh,', 70, finalY + 15);
+       doc.text(`(${customerName || '....................'})`, 70, finalY + 35);
+
+       // Footer Right (Totals)
+       const rightX = 140;
+       const rightValX = 196;
+
+       // Total PO Row
+       doc.setFillColor(220, 220, 220);
+       doc.rect(rightX - 5, finalY - 5, rightValX - rightX + 5, 8, 'F');
+       doc.setFont('helvetica', 'bold');
+       doc.text('Jumlah Total PO :', rightX, finalY + 0.5);
+       doc.text(totalCartPrice.toLocaleString('id-ID'), rightValX - 2, finalY + 0.5, { align: 'right' });
+
+       // Breakdown Box
+       doc.setFont('helvetica', 'normal');
+       const breakdownY = finalY + 6;
+       
+       const drawRow = (label: string, val: string, yPos: number, isTotal = false) => {
+         doc.rect(rightX - 5, yPos, 45, 6); // Label cell
+         doc.rect(rightX + 40, yPos, rightValX - rightX - 40 + 5, 6); // Value cell
+         
+         if (isTotal) {
+           doc.setFillColor(220, 220, 220);
+           doc.rect(rightX - 5, yPos, rightValX - rightX + 5, 6, 'F');
+           doc.setFont('helvetica', 'bold');
+         } else {
+           doc.setFont('helvetica', 'normal');
+         }
+
+         doc.text(label, rightX - 3, yPos + 4);
+         doc.text(val, rightValX - 2, yPos + 4, { align: 'right' });
+       };
+
+       const tax = totalCartPrice * 0.11;
+
+       drawRow('Diskon Akhir', '0', breakdownY);
+       drawRow('Tax Rate', '11%', breakdownY + 6);
+       drawRow('Tax', tax.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 2 }), breakdownY + 12);
+       drawRow('Biaya / Lain-lain', '0', breakdownY + 18);
+       drawRow('TOTAL', totalCartPrice.toLocaleString('id-ID'), breakdownY + 24, true);
+
+       doc.save(`Invoice_SST_${customerName.replace(/\s+/g, '_')}.pdf`);
+       
+       generateCSV();
+       
+       setTimeout(() => {
+          const message = getCheckoutMessage(true);
+          const cleanPhone = storeProfile.nomorWhatsApp.replace(/[^0-9]/g, '');
+          const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+          window.open(url, '_blank');
+       }, 1000);
+
     } catch (err) {
-       console.error("Failed to generate invoice", err);
+       console.error("Failed to generate PDF", err);
        alert("Gagal menghasilkan invoice. Silakan coba checkout biasa.");
-       const wrapper = document.getElementById('invoice-capture-wrapper');
-       if (wrapper) wrapper.style.top = '100vh';
     } finally {
        setIsGenerating(false);
-       const wrapper = document.getElementById('invoice-capture-wrapper');
-       if (wrapper) wrapper.style.top = '100vh';
     }
   };
 
@@ -407,20 +527,6 @@ export const CartDrawer: React.FC = () => {
             </div>
           </div>
         )}
-        </div>
-      </div>
-      
-      {/* Hidden Invoice Component for Capture */}
-      <div id="invoice-capture-wrapper" style={{ position: 'fixed', top: '100vh', left: 0, pointerEvents: 'none' }}>
-        <div style={{ width: '800px' }}>
-          <InvoiceTemplate 
-            ref={invoiceRef}
-            cart={cart}
-            customerName={customerName}
-            customerAddress={customerAddress}
-            customerCode={customerCode}
-            totalPrice={totalCartPrice}
-          />
         </div>
       </div>
     </>

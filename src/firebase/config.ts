@@ -77,11 +77,11 @@ let firestoreInstance: Firestore;
 try {
   firestoreInstance = resolvedDatabaseId
     ? initializeFirestore(app, {
-        experimentalAutoDetectLongPolling: true,
+        experimentalForceLongPolling: true,
         ignoreUndefinedProperties: true,
       }, resolvedDatabaseId)
     : initializeFirestore(app, {
-        experimentalAutoDetectLongPolling: true,
+        experimentalForceLongPolling: true,
         ignoreUndefinedProperties: true,
       });
 } catch (err) {
