@@ -121,13 +121,27 @@ export const CartDrawer: React.FC = () => {
 
     setIsGenerating(true);
     try {
+       // Wait a tick for React to show the loading state
+       await new Promise(resolve => setTimeout(resolve, 100));
+
+       const wrapper = document.getElementById('invoice-capture-wrapper');
+       if (wrapper) {
+           wrapper.style.top = '0px';
+           wrapper.style.zIndex = '-9999';
+       }
+
        if (invoiceRef.current) {
           const canvas = await html2canvas(invoiceRef.current, {
              scale: 2,
              useCORS: true,
-             backgroundColor: '#ffffff'
+             backgroundColor: '#ffffff',
+             logging: false
           });
           
+          if (wrapper) {
+              wrapper.style.top = '100vh';
+          }
+
           const image = canvas.toDataURL("image/png");
           const link = document.createElement("a");
           link.href = image;
@@ -146,8 +160,12 @@ export const CartDrawer: React.FC = () => {
     } catch (err) {
        console.error("Failed to generate invoice", err);
        alert("Gagal menghasilkan invoice. Silakan coba checkout biasa.");
+       const wrapper = document.getElementById('invoice-capture-wrapper');
+       if (wrapper) wrapper.style.top = '100vh';
     } finally {
        setIsGenerating(false);
+       const wrapper = document.getElementById('invoice-capture-wrapper');
+       if (wrapper) wrapper.style.top = '100vh';
     }
   };
 
@@ -393,15 +411,17 @@ export const CartDrawer: React.FC = () => {
       </div>
       
       {/* Hidden Invoice Component for Capture */}
-      <div style={{ position: 'fixed', top: 0, left: '-9999px', pointerEvents: 'none' }}>
-        <InvoiceTemplate 
-          ref={invoiceRef}
-          cart={cart}
-          customerName={customerName}
-          customerAddress={customerAddress}
-          customerCode={customerCode}
-          totalPrice={totalCartPrice}
-        />
+      <div id="invoice-capture-wrapper" style={{ position: 'fixed', top: '100vh', left: 0, pointerEvents: 'none' }}>
+        <div style={{ width: '800px' }}>
+          <InvoiceTemplate 
+            ref={invoiceRef}
+            cart={cart}
+            customerName={customerName}
+            customerAddress={customerAddress}
+            customerCode={customerCode}
+            totalPrice={totalCartPrice}
+          />
+        </div>
       </div>
     </>
   );

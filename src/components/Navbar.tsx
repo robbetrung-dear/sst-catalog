@@ -47,7 +47,7 @@ export const Navbar: React.FC = () => {
           <span className="truncate flex-1 text-left sm:text-center">
             ✨ <strong>Katalog Resmi:</strong> Melayani Pesanan Grosir & Eceran Seluruh Indonesia
           </span>
-          <div className="hidden md:flex items-center space-x-4 shrink-0 text-slate-100 ml-4">
+          <div className="hidden lg:flex items-center space-x-4 shrink-0 text-slate-100 ml-4">
             <span>⏰ {storeProfile.jamOperasional.split('|')[0] || 'Senin - Sabtu: 08:00 - 17:00'}</span>
             <a
               href={`https://wa.me/${cleanPhone}`}
@@ -67,7 +67,7 @@ export const Navbar: React.FC = () => {
           <div
             id="nav-brand-logo"
             onClick={() => handleNavClick('beranda')}
-            className="flex items-center gap-2 sm:gap-3 cursor-pointer select-none shrink sm:shrink-0 min-w-0"
+            className="flex items-center gap-2 sm:gap-3 cursor-pointer select-none shrink min-w-0"
           >
             {siteSettings.logoUrl ? (
               <img
