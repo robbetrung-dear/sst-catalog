@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { X, Trash2, ShoppingBag, Send, AlertTriangle, ArrowRight, Package, FileText } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Trash2, ShoppingBag, Send, AlertTriangle, ArrowRight, Package, FileText, CheckCircle } from 'lucide-react';
 import { useCatalog } from '../context/CatalogContext';
 import { formatRupiah } from '../utils/csvHelper';
 
@@ -22,6 +22,7 @@ export const CartDrawer: React.FC = () => {
   const [isCodeFocused, setIsCodeFocused] = useState(false);
   const [formError, setFormError] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [downloadSuccessToast, setDownloadSuccessToast] = useState(false);
 
   if (!isCartOpen) return null;
 
@@ -62,7 +63,7 @@ export const CartDrawer: React.FC = () => {
       .replace(/{CATATAN}/g, customerCode.trim());
 
     if (includeInvoiceRef) {
-      message = `Halo Admin ${storeProfile.namaToko}, saya telah membuat Draft Invoice untuk pesanan saya.\n\n*Nama:* ${customerName}\n*Total Estimasi:* ${formatRupiah(totalCartPrice)}\n\nSaya akan melampirkan file draft invoice (PDF & CSV) yang telah diunduh pada pesan ini.\n\nBerikut adalah rincian pesanannya:\n\n` + message;
+      message = `Halo Admin ${storeProfile.namaToko}, saya telah membuat Draft Pesanan / Invoice untuk pesanan saya.\n\n*Nama:* ${customerName}\n*Total Estimasi:* ${formatRupiah(totalCartPrice)}\n\n📎 *Catatan:* File rincian pesanan (format CSV) telah diunduh ke perangkat dan saya lampirkan pada chat ini.\n\nBerikut adalah rincian pesanannya:\n\n` + message;
     }
 
     return message;
@@ -95,10 +96,11 @@ export const CartDrawer: React.FC = () => {
        csv += `${index + 1},${cleanName},${item.quantity},${activePrice},${discPercent > 0 ? discPercent + '%' : ''},${lineTotal}\n`;
     });
     
-    csv += `\n,,,,,Jumlah Total PO:,${totalCartPrice}\n`;
-    csv += `,,,,,Tax Rate:,11%\n`;
-    csv += `,,,,,Tax:,${(totalCartPrice * 0.11).toFixed(2)}\n`;
-    csv += `,,,,,TOTAL:,${totalCartPrice}\n`;
+    // Column alignment: 4 commas put label in Column E (Disc.%) and value in Column F (Total)
+    csv += `\n,,,,Jumlah Total:,${totalCartPrice}\n`;
+    csv += `,,,,Tax Rate:,11%\n`;
+    csv += `,,,,Tax:,${(totalCartPrice * 0.11).toFixed(2)}\n`;
+    csv += `,,,,TOTAL:,${totalCartPrice}\n`;
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
@@ -111,180 +113,27 @@ export const CartDrawer: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  const handleCheckoutWhatsAppWithInvoice = async () => {
+  const handleCheckoutWhatsAppWithInvoice = () => {
     if (!validateForm()) return;
     if (cart.length === 0) return;
 
     setIsGenerating(true);
     try {
-       // Wait a tick for React to show the loading state
-       await new Promise(resolve => setTimeout(resolve, 100));
+      // 1. Instantly generate & download the CSV invoice
+      generateCSV();
 
-       // Dynamically import jsPDF and autoTable to reduce initial load time
-       const { default: jsPDF } = await import('jspdf');
-       const { default: autoTable } = await import('jspdf-autotable');
+      // 2. Open WhatsApp in a new tab with prepared message
+      const message = getCheckoutMessage(true);
+      const cleanPhone = storeProfile.nomorWhatsApp.replace(/[^0-9]/g, '');
+      const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+      window.open(url, '_blank');
 
-       // Generate PDF using jsPDF
-       const doc = new jsPDF({
-         orientation: 'p',
-         unit: 'mm',
-         format: 'a4'
-       });
-
-       const now = new Date();
-       const pad = (n: number) => n.toString().padStart(2, '0');
-       const yyyy = now.getFullYear();
-       const mm = pad(now.getMonth() + 1);
-       const dd = pad(now.getDate());
-       const hh = pad(now.getHours());
-       const min = pad(now.getMinutes());
-       
-       const kode = (customerCode && customerCode !== 'Pelanggan Tunai') ? customerCode : 'TUNAI';
-       const invoiceNumber = `${kode}/${yyyy}/${mm}/${dd}/${hh}/${min}`;
-       const dateFormatted = `${dd}/${mm}/${yyyy}`;
-
-       // Header Text
-       doc.setFontSize(10);
-       doc.setFont('helvetica', 'bold');
-       doc.text('No. INV.', 14, 20);
-       doc.text(':', 35, 20);
-       doc.setFont('helvetica', 'normal');
-       doc.text(invoiceNumber, 38, 20);
-
-       doc.setFont('helvetica', 'bold');
-       doc.text('Yth. Kpd.', 14, 26);
-       doc.text(':', 35, 26);
-       doc.setFont('helvetica', 'normal');
-       doc.text(customerName, 38, 26);
-
-       doc.setFont('helvetica', 'bold');
-       doc.text('Alamat', 14, 32);
-       doc.text(':', 35, 32);
-       doc.setFont('helvetica', 'normal');
-       
-       // Handle long address
-       const addressLines = doc.splitTextToSize(customerAddress, 100);
-       doc.text(addressLines, 38, 32);
-
-       // Company Logo/Text (Right side)
-       doc.setFontSize(36);
-       doc.setFont('times', 'bold');
-       doc.setTextColor(139, 90, 43); // #8B5A2B
-       doc.text('SST', 196, 28, { align: 'right' });
-
-       // Reset colors
-       doc.setTextColor(0, 0, 0);
-
-       // Generate Table Body
-       const tableBody = cart.map((item, index) => {
-         const hasDiscount = Boolean(item.product.harga_diskon && item.product.harga_diskon < item.product.harga);
-         const activePrice = hasDiscount ? item.product.harga_diskon! : item.product.harga;
-         const lineTotal = activePrice * item.quantity;
-         
-         let discPercent = 0;
-         if (hasDiscount && item.product.harga > 0) {
-            discPercent = Math.round(((item.product.harga - activePrice) / item.product.harga) * 100);
-         }
-
-         return [
-           index + 1,
-           item.product.nama.toUpperCase(),
-           item.quantity,
-           activePrice.toLocaleString('id-ID'),
-           discPercent > 0 ? `${discPercent}%` : '',
-           lineTotal.toLocaleString('id-ID')
-         ];
-       });
-
-       const startYTable = 45;
-
-       // Use autoTable plugin
-       autoTable(doc, {
-         startY: startYTable,
-         head: [['No.', 'SST DO (DELIVERY ORDER) & INVOICE', 'Jumlah', 'Harga', 'Disc.%', 'Total']],
-         body: tableBody,
-         theme: 'grid',
-         headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
-         styles: { font: 'helvetica', fontSize: 9 },
-         columnStyles: {
-           0: { halign: 'center', cellWidth: 12 },
-           1: { halign: 'left' },
-           2: { halign: 'center', cellWidth: 20 },
-           3: { halign: 'right', cellWidth: 30 },
-           4: { halign: 'center', cellWidth: 20 },
-           5: { halign: 'right', cellWidth: 35 }
-         }
-       });
-
-       // @ts-ignore
-       const finalY = doc.lastAutoTable.finalY + 10;
-       
-       // Footer Left (Signatures)
-       doc.setFont('helvetica', 'bold');
-       doc.setFontSize(10);
-       doc.text('Tanggal:', 14, finalY);
-       doc.setFont('helvetica', 'normal');
-       doc.text(dateFormatted, 32, finalY);
-
-       doc.text('Disetujui,', 14, finalY + 15);
-       doc.text('(Admin)', 14, finalY + 35);
-
-       doc.text('Diorder oleh,', 70, finalY + 15);
-       doc.text(`(${customerName || '....................'})`, 70, finalY + 35);
-
-       // Footer Right (Totals)
-       const rightX = 140;
-       const rightValX = 196;
-
-       // Total PO Row
-       doc.setFillColor(220, 220, 220);
-       doc.rect(rightX - 5, finalY - 5, rightValX - rightX + 5, 8, 'F');
-       doc.setFont('helvetica', 'bold');
-       doc.text('Jumlah Total PO :', rightX, finalY + 0.5);
-       doc.text(totalCartPrice.toLocaleString('id-ID'), rightValX - 2, finalY + 0.5, { align: 'right' });
-
-       // Breakdown Box
-       doc.setFont('helvetica', 'normal');
-       const breakdownY = finalY + 6;
-       
-       const drawRow = (label: string, val: string, yPos: number, isTotal = false) => {
-         doc.rect(rightX - 5, yPos, 45, 6); // Label cell
-         doc.rect(rightX + 40, yPos, rightValX - rightX - 40 + 5, 6); // Value cell
-         
-         if (isTotal) {
-           doc.setFillColor(220, 220, 220);
-           doc.rect(rightX - 5, yPos, rightValX - rightX + 5, 6, 'F');
-           doc.setFont('helvetica', 'bold');
-         } else {
-           doc.setFont('helvetica', 'normal');
-         }
-
-         doc.text(label, rightX - 3, yPos + 4);
-         doc.text(val, rightValX - 2, yPos + 4, { align: 'right' });
-       };
-
-       const tax = totalCartPrice * 0.11;
-
-       drawRow('Diskon Akhir', '0', breakdownY);
-       drawRow('Tax Rate', '11%', breakdownY + 6);
-       drawRow('Tax', tax.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 2 }), breakdownY + 12);
-       drawRow('Biaya / Lain-lain', '0', breakdownY + 18);
-       drawRow('TOTAL', totalCartPrice.toLocaleString('id-ID'), breakdownY + 24, true);
-
-       doc.save(`Invoice_SST_${customerName.replace(/\s+/g, '_')}.pdf`);
-       
-       generateCSV();
-       
-       setTimeout(() => {
-          const message = getCheckoutMessage(true);
-          const cleanPhone = storeProfile.nomorWhatsApp.replace(/[^0-9]/g, '');
-          const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-          window.open(url, '_blank');
-       }, 1000);
-
+      // 3. Show a clear instruction toast in the drawer
+      setDownloadSuccessToast(true);
+      setTimeout(() => setDownloadSuccessToast(false), 9000);
     } catch (err) {
-       console.error("Failed to generate PDF", err);
-       alert("Gagal menghasilkan invoice. Silakan coba checkout biasa.");
+       console.error("Gagal membuat CSV", err);
+       alert("Gagal mengunduh file invoice CSV. Silakan coba checkout WhatsApp biasa.");
     } finally {
        setIsGenerating(false);
     }
@@ -514,17 +363,21 @@ export const CartDrawer: React.FC = () => {
                 disabled={isGenerating}
                 className="w-full py-3.5 px-4 rounded-xl bg-[#135A62] hover:bg-[#0e444a] text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 select-none disabled:opacity-70"
               >
-                {isGenerating ? (
-                  <span className="flex items-center gap-2 animate-pulse">
-                    Mempersiapkan File...
-                  </span>
-                ) : (
-                  <>
-                    <FileText className="w-4 h-4" />
-                    <span>Checkout Whatsapp With Invoice draft</span>
-                  </>
-                )}
+                <FileText className="w-4 h-4" />
+                <span>Checkout Whatsapp With Invoice draft (CSV)</span>
               </button>
+
+              {downloadSuccessToast && (
+                <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-900 flex items-start gap-2.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="leading-relaxed">
+                    <p className="font-bold text-emerald-950">File CSV Berhasil Diunduh!</p>
+                    <p className="text-emerald-800 text-[11px] mt-0.5">
+                      File rincian pesanan telah tersimpan di perangkat Anda. Silakan klik tombol lampiran (ikon 📎) pada chat WhatsApp yang terbuka untuk mengirimkan file ke Admin.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
