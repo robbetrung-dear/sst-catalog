@@ -152,11 +152,12 @@ export const CartDrawer: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
-      <div
-        id="cart-drawer-panel"
-        className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-300 relative"
-      >
+    <>
+      <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
+        <div
+          id="cart-drawer-panel"
+          className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-300 relative"
+        >
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-2.5">
@@ -388,10 +389,11 @@ export const CartDrawer: React.FC = () => {
             </div>
           </div>
         )}
+        </div>
       </div>
       
       {/* Hidden Invoice Component for Capture */}
-      <div className="absolute top-0 left-0 -z-50 pointer-events-none opacity-0">
+      <div style={{ position: 'fixed', top: 0, left: '-9999px', pointerEvents: 'none' }}>
         <InvoiceTemplate 
           ref={invoiceRef}
           cart={cart}
@@ -401,6 +403,6 @@ export const CartDrawer: React.FC = () => {
           totalPrice={totalCartPrice}
         />
       </div>
-    </div>
+    </>
   );
 };

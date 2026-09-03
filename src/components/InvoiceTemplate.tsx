@@ -1,6 +1,5 @@
 import React from 'react';
 import { CartItem } from '../context/CatalogContext';
-import { formatRupiah } from '../utils/format';
 
 interface InvoiceTemplateProps {
   cart: CartItem[];
@@ -31,7 +30,7 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceTemplateP
     return (
       <div 
         ref={ref} 
-        className="bg-white text-black p-8 font-sans w-[800px] absolute -left-[9999px]"
+        className="bg-white text-black p-8 font-sans w-[800px]"
         style={{ fontFamily: 'Arial, sans-serif' }}
       >
         {/* Header */}

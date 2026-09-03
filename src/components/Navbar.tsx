@@ -122,46 +122,6 @@ export const Navbar: React.FC = () => {
 
           {/* Right Action Icons */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            {/* Quick Search Toggle / Input */}
-            <div className="relative hidden sm:block">
-              {showSearchInput ? (
-                <div className="flex items-center bg-slate-100 rounded-lg px-2.5 py-1.5 border border-slate-300 w-48 lg:w-64 animate-in fade-in duration-150">
-                  <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Cari produk..."
-                    autoFocus
-                    className="bg-transparent border-none outline-none text-sm w-full text-slate-800"
-                  />
-                  <button
-                    onClick={() => {
-                      setShowSearchInput(false);
-                      if (!searchQuery) {
-                        setSearchQuery('');
-                      }
-                    }}
-                    className="text-slate-400 hover:text-slate-600 p-0.5"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  id="nav-search-btn"
-                  onClick={() => {
-                    setShowSearchInput(true);
-                    if (activeTab !== 'beranda') setActiveTab('beranda');
-                  }}
-                  className="p-2 sm:p-2.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-[#135A62] transition-colors"
-                  title="Cari Produk"
-                >
-                  <Search className="w-5 h-5" />
-                </button>
-              )}
-            </div>
-
             {/* Cart Button with Count Badge */}
             <button
               id="nav-cart-btn"
