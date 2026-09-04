@@ -126,6 +126,21 @@ export const CartDrawer: React.FC = () => {
     csv += `${codeColA},,,,Tax:,${taxValue}\n`;
     csv += `${phoneColA},,,,TOTAL:,${totalCartPrice}\n`;
 
+    // Baris terakhir: keterangan informasi lokasi kota/kabupaten, tanggal (lengkap) dan waktu (lengkap) send by whatsapp (semua dalam satu baris)
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const tanggalLengkap = now.toLocaleDateString('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+    const waktuLengkap = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} WIB`;
+    const lokasiKotaKab = customerAddress.trim() || 'Surabaya';
+    const infoSendByWA = `Lokasi (Kota/Kabupaten): ${lokasiKotaKab} | Tanggal: ${tanggalLengkap} | Waktu: ${waktuLengkap} | Send by WhatsApp`;
+
+    csv += `"${infoSendByWA.replace(/"/g, '""')}"\n`;
+
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
