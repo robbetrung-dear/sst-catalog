@@ -250,3 +250,112 @@ export function formatRupiah(amount: number): string {
     maximumFractionDigits: 0,
   }).format(amount);
 }
+
+/**
+ * Extract only City/Regency (Kota / Kabupaten) from address input
+ * e.g., "Rungkut, Surabaya" -> "Surabaya"
+ * e.g., "Jl. Kaliurang Km 5, Sleman" -> "Sleman"
+ * e.g., "Jl. Merdeka No. 45, Kota Bandung" -> "Kota Bandung"
+ * e.g., "Komp. Pergudangan Margomulyo, Surabaya 60293" -> "Surabaya"
+ * e.g., "Cikarang Barat, Bekasi" -> "Bekasi"
+ * e.g., "Jl. Thamrin No. 10 Jakarta Pusat" -> "Jakarta Pusat"
+ */
+export function extractCityOrRegency(address: string): string {
+  if (!address || !address.trim()) return 'Surabaya';
+
+  let clean = address.trim();
+
+  // Remove trailing postal code (5 digits) e.g., "60293"
+  clean = clean.replace(/\b\d{5}\b\s*$/, '').trim();
+  // Remove trailing punctuation marks
+  clean = clean.replace(/[,.-]+$/, '').trim();
+
+  if (!clean) return 'Surabaya';
+
+  // Check if comma separated (very common in addresses: "Jl. X No. Y, Kecamatan Z, Kota A")
+  if (clean.includes(',')) {
+    const segments = clean
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    // List of common Indonesian provinces that might be placed at the very end after the city
+    const provinceList = [
+      'jawa timur', 'jatim',
+      'jawa barat', 'jabar',
+      'jawa tengah', 'jateng',
+      'dki jakarta', 'jakarta',
+      'banten',
+      'di yogyakarta', 'diy', 'yogyakarta',
+      'bali',
+      'sumatera utara', 'sumut',
+      'sumatera barat', 'sumbar',
+      'sumatera selatan', 'sumsel',
+      'riau', 'kepulauan riau', 'kepri',
+      'lampung',
+      'kalimantan timur', 'kaltim',
+      'kalimantan barat', 'kalbar',
+      'kalimantan selatan', 'kalsel',
+      'sulawesi selatan', 'sulsel',
+      'sulawesi utara', 'sulut',
+      'nusa tenggara barat', 'ntb',
+      'nusa tenggara timur', 'ntt',
+      'papua'
+    ];
+
+    let targetSegment = segments[segments.length - 1];
+
+    // If the last segment is just a province, and there is a segment before it, pick the one before it
+    if (segments.length >= 2) {
+      const lowerLast = targetSegment.toLowerCase().replace(/[,.-]/g, '').trim();
+      if (provinceList.includes(lowerLast)) {
+        targetSegment = segments[segments.length - 2];
+      }
+    }
+
+    // Clean postal code from segment
+    targetSegment = targetSegment.replace(/\b\d{5}\b\s*$/, '').trim();
+    const segmentWords = targetSegment.split(/\s+/).filter(Boolean);
+
+    // If segment is 1 or 2 words (e.g. "Surabaya", "Jakarta Barat", "Kota Bandung", "Kab. Sleman")
+    if (segmentWords.length <= 2 && segmentWords.length > 0) {
+      return targetSegment;
+    } else if (segmentWords.length > 2) {
+      // If the segment has more words (e.g. "Kabupaten Tangerang Selatan"),
+      // check if it starts with 'Kota' / 'Kab' / 'Kabupaten'
+      const firstWord = segmentWords[0].toLowerCase().replace(/[.,]/g, '');
+      if (['kota', 'kab', 'kabupaten'].includes(firstWord) && segmentWords.length <= 3) {
+        return targetSegment;
+      }
+      // Otherwise take the last 2 words of the segment
+      return segmentWords.slice(-2).join(' ');
+    }
+  }
+
+  // If no comma was used in the address string:
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length <= 2) {
+    return clean;
+  }
+
+  const lastWord = words[words.length - 1];
+  const secondLastWord = words[words.length - 2].toLowerCase().replace(/[.,]/g, '');
+
+  // 1. If the second-last word is a common prefix for city/district:
+  const prefixes = ['kota', 'kab', 'kabupaten', 'jakarta'];
+  const directions = ['selatan', 'barat', 'timur', 'utara', 'pusat'];
+
+  if (prefixes.includes(secondLastWord) || directions.includes(lastWord.toLowerCase())) {
+    return `${words[words.length - 2]} ${lastWord}`;
+  }
+
+  // 2. If the second-last word is an address identifier (No., RT, RW, Jl, Blok, etc.) or a number:
+  // then the city is definitely just the last single word!
+  const addressMarkers = ['no', 'nomor', 'rt', 'rw', 'jl', 'jalan', 'gg', 'gang', 'blok', 'km'];
+  if (addressMarkers.includes(secondLastWord) || /^\d+$/.test(secondLastWord)) {
+    return lastWord;
+  }
+
+  // 3. Otherwise, return the last 1 or 2 words (as requested: "biasanya kota/kabupaten adalah 2 kata / 1 kata terakhir dari seluruh teks alamat yang di input")
+  return words.slice(-2).join(' ');
+}
