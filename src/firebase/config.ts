@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeFirestore, getFirestore, Firestore } from 'firebase/firestore';
+import { getFirestore, setLogLevel, Firestore } from 'firebase/firestore';
 import fallbackConfig from '../../firebase-applet-config.json';
 
 export interface FirebaseCustomConfig {
@@ -64,6 +64,13 @@ export const firebaseConfig = {
 
 export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
+// Set log level to silent so background connection retries in offline-capable mode do not trigger internal warning popups
+try {
+  setLogLevel('silent');
+} catch (e) {
+  // Ignore in environments where setLogLevel might already be configured
+}
+
 // If database ID is "(default)", empty, or undefined, use standard default database
 const customDbId = localSavedConfig?.firestoreDatabaseId || envDatabaseId || fallbackConfig.firestoreDatabaseId;
 const isDefaultDatabase = !customDbId || 
@@ -73,19 +80,12 @@ const isDefaultDatabase = !customDbId ||
 
 const resolvedDatabaseId = isDefaultDatabase ? undefined : customDbId.trim();
 
+// Standard Firebase SDK initialization as required by firebase-skill guidelines
 let firestoreInstance: Firestore;
 try {
-  firestoreInstance = resolvedDatabaseId
-    ? initializeFirestore(app, {
-        experimentalForceLongPolling: true,
-        ignoreUndefinedProperties: true,
-      }, resolvedDatabaseId)
-    : initializeFirestore(app, {
-        experimentalForceLongPolling: true,
-        ignoreUndefinedProperties: true,
-      });
+  firestoreInstance = resolvedDatabaseId ? getFirestore(app, resolvedDatabaseId) : getFirestore(app);
 } catch (err) {
-  console.warn('initializeFirestore fallback to getFirestore:', err);
+  console.warn('Firestore initialization fallback:', err);
   firestoreInstance = getFirestore(app);
 }
 

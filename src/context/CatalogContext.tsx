@@ -9,7 +9,7 @@ import {
   saveProductsBatch, 
   saveStoreDataToDb, 
   resetDbToDefault, 
-  initializeFirebaseData 
+  initializeFirebaseData
 } from '../firebase/db';
 
 const levenshtein = (a: string, b: string): number => {
@@ -180,18 +180,18 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
     let unsubSettings: (() => void) | undefined;
 
     const init = async () => {
-      try {
-        await initializeFirebaseData();
-      } catch (err) {
-        console.error("Firebase init failed", err);
-      }
-      
+      // 1. Immediately subscribe to listeners so UI receives live updates without waiting
       unsubProducts = listenToProducts(setProducts);
       unsubCategories = listenToStoreData<CategoryMeta[]>('categories', setCategoriesMeta, true);
       unsubInfoTrends = listenToStoreData<InfoTrendItem[]>('infoTrends', setInfoTrends, true);
       unsubNotifications = listenToStoreData<StockNotification[]>('notifications', setNotifications, true);
       unsubProfile = listenToStoreData<StoreProfile>('storeProfile', setStoreProfile, false);
       unsubSettings = listenToStoreData<SiteSettings>('siteSettings', setSiteSettings, false);
+
+      // 2. Perform background setup check if needed
+      initializeFirebaseData().catch((err) => {
+        console.warn("Firebase background init notice:", err);
+      });
     };
 
     init();

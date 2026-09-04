@@ -98,16 +98,11 @@ export const CartDrawer: React.FC = () => {
   const generateCSV = () => {
     let csv = "No.,SST DO (DELIVERY ORDER) & INVOICE,Jumlah,Harga,Disc.%,Total\n";
     cart.forEach((item, index) => {
-       const hasDiscount = Boolean(item.product.harga_diskon && item.product.harga_diskon < item.product.harga);
-       const activePrice = hasDiscount ? item.product.harga_diskon! : item.product.harga;
+       const activePrice = item.product.harga_diskon || item.product.harga;
        const lineTotal = activePrice * item.quantity;
-       let discPercent = 0;
-       if (hasDiscount && item.product.harga > 0) {
-          discPercent = Math.round(((item.product.harga - activePrice) / item.product.harga) * 100);
-       }
-       
        const cleanName = `"${item.product.nama.replace(/"/g, '""')}"`;
-       csv += `${index + 1},${cleanName},${item.quantity},${activePrice},${discPercent > 0 ? discPercent + '%' : ''},${lineTotal}\n`;
+       // Kolom Disc.% (kolom E) selalu kosong karena harga sudah merupakan harga netto
+       csv += `${index + 1},${cleanName},${item.quantity},${activePrice},,${lineTotal}\n`;
     });
     
     // Formula Tax: nilai Tax = nilai Jumlah Total / (1+ nilai Tax Rate/100) dengan pembulatan dua angka desimal

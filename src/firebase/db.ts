@@ -1,8 +1,56 @@
 import { db } from './config';
-import { collection, doc, setDoc, getDoc, getDocs, onSnapshot, writeBatch, deleteDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, getDocs, onSnapshot, writeBatch, deleteDoc, query, limit } from 'firebase/firestore';
 import { Product, CategoryMeta, InfoTrendItem, StoreProfile, SiteSettings, StockNotification } from '../types';
 import { INITIAL_PRODUCTS, INITIAL_CATEGORIES, INITIAL_INFO_TRENDS, INITIAL_STORE_PROFILE, INITIAL_SITE_SETTINGS, INITIAL_NOTIFICATIONS } from '../data/initialData';
 import { sanitizeProductData } from '../utils/csvHelper';
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const message = error instanceof Error ? error.message : String(error);
+  // Gracefully log offline notice without disrupting UI
+  if (message.includes('offline') || message.includes('Could not reach Cloud Firestore backend')) {
+    return;
+  }
+  const errInfo: FirestoreErrorInfo = {
+    error: message,
+    authInfo: {
+      userId: null,
+      email: null,
+      emailVerified: null,
+      isAnonymous: null,
+      tenantId: null,
+      providerInfo: []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+}
 
 // References
 const productsRef = collection(db, 'products');
@@ -17,6 +65,9 @@ export const sanitizeDocId = (id: string | number): string => {
 
 // Initial Setup Check & Auto-Healing
 export const initializeFirebaseData = async () => {
+  if (typeof window !== 'undefined' && sessionStorage.getItem('sst_firestore_init_done') === 'true') {
+    return;
+  }
   try {
     const profileDoc = await getDoc(doc(storeDataRef, 'storeProfile'));
     if (!profileDoc.exists()) {
@@ -52,8 +103,8 @@ export const initializeFirebaseData = async () => {
       }
     }
 
-    // Check if products collection is empty and seed if needed
-    const productsSnapshot = await getDocs(productsRef);
+    // Check if products collection is empty using limit(1) instead of fetching all documents
+    const productsSnapshot = await getDocs(query(productsRef, limit(1)));
     if (productsSnapshot.empty) {
       console.log("Firestore products collection is empty. Populating default catalog...");
       const cleanProducts = INITIAL_PRODUCTS.map((p, idx) => sanitizeProductData(p, idx));
@@ -67,8 +118,11 @@ export const initializeFirebaseData = async () => {
         await batch.commit();
       }
     }
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('sst_firestore_init_done', 'true');
+    }
   } catch (error) {
-    console.warn("Firestore initialization notice:", error);
+    handleFirestoreError(error, OperationType.GET, 'initialization');
   }
 };
 
@@ -81,7 +135,7 @@ export const listenToProducts = (callback: (products: Product[]) => void) => {
       callback(products);
     },
     (error) => {
-      console.warn("Firestore products sync notice:", error.message);
+      handleFirestoreError(error, OperationType.LIST, 'products');
     }
   );
 };
@@ -96,7 +150,7 @@ export const listenToStoreData = <T>(docId: string, callback: (data: T) => void,
       }
     },
     (error) => {
-      console.warn(`Firestore ${docId} sync notice:`, error.message);
+      handleFirestoreError(error, OperationType.GET, `storeData/${docId}`);
     }
   );
 };
