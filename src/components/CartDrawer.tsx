@@ -16,9 +16,18 @@ export const CartDrawer: React.FC = () => {
     storeProfile,
   } = useCatalog();
 
-  const [customerName, setCustomerName] = useState('');
-  const [customerAddress, setCustomerAddress] = useState('');
-  const [customerCode, setCustomerCode] = useState('Pelanggan Tunai');
+  const [customerName, setCustomerName] = useState(() => {
+    return localStorage.getItem('sst_customer_name') || '';
+  });
+  const [customerAddress, setCustomerAddress] = useState(() => {
+    return localStorage.getItem('sst_customer_address') || '';
+  });
+  const [customerPhone, setCustomerPhone] = useState(() => {
+    return localStorage.getItem('sst_customer_phone') || '';
+  });
+  const [customerCode, setCustomerCode] = useState(() => {
+    return localStorage.getItem('sst_customer_code') || 'Pelanggan Tunai';
+  });
   const [isCodeFocused, setIsCodeFocused] = useState(false);
   const [formError, setFormError] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -54,16 +63,20 @@ export const CartDrawer: React.FC = () => {
     let message = storeProfile.waTemplate ||
       'Halo Admin {NAMA_TOKO}, saya ingin memesan produk dari katalog website:\n\n{DAFTAR_PESANAN}\n\n*Total Estimasi:* {TOTAL_HARGA}\n\n*Data Pemesan:*\n- Nama: {NAMA}\n- Alamat / Kota: {ALAMAT}\n- Catatan Khusus: {CATATAN}\n\nMohon konfirmasi ketersediaan stok & total ongkir. Terima kasih!';
 
+    const customerNotes = customerPhone.trim()
+      ? `${customerCode.trim()}\n- No. WhatsApp: ${customerPhone.trim()}`
+      : customerCode.trim();
+
     message = message
       .replace(/{NAMA_TOKO}/g, storeProfile.namaToko)
       .replace(/{DAFTAR_PESANAN}/g, itemLines)
       .replace(/{TOTAL_HARGA}/g, formatRupiah(totalCartPrice))
-      .replace(/{NAMA}/g, customerName.trim())
+      .replace(/{NAMA}/g, customerName.trim().toUpperCase())
       .replace(/{ALAMAT}/g, customerAddress.trim())
-      .replace(/{CATATAN}/g, customerCode.trim());
+      .replace(/{CATATAN}/g, customerNotes);
 
     if (includeInvoiceRef) {
-      message = `Halo Admin ${storeProfile.namaToko}, saya telah membuat Draft Pesanan / Invoice untuk pesanan saya.\n\n*Nama:* ${customerName}\n*Total Estimasi:* ${formatRupiah(totalCartPrice)}\n\n📎 *Catatan:* File rincian pesanan (format CSV) telah diunduh ke perangkat dan saya lampirkan pada chat ini.\n\nBerikut adalah rincian pesanannya:\n\n` + message;
+      message = `Halo Admin ${storeProfile.namaToko}, saya telah membuat Draft Pesanan / Invoice untuk pesanan saya.\n\n*Nama:* ${customerName.trim().toUpperCase()}\n*Total Estimasi:* ${formatRupiah(totalCartPrice)}\n\n📎 *Catatan:* File rincian pesanan (format CSV) telah diunduh ke perangkat dan saya lampirkan pada chat ini.\n\nBerikut adalah rincian pesanannya:\n\n` + message;
     }
 
     return message;
@@ -96,11 +109,22 @@ export const CartDrawer: React.FC = () => {
        csv += `${index + 1},${cleanName},${item.quantity},${activePrice},${discPercent > 0 ? discPercent + '%' : ''},${lineTotal}\n`;
     });
     
-    // Column alignment: 4 commas put label in Column E (Disc.%) and value in Column F (Total)
-    csv += `\n,,,,Jumlah Total:,${totalCartPrice}\n`;
-    csv += `,,,,Tax Rate:,11%\n`;
-    csv += `,,,,Tax:,${(totalCartPrice * 0.11).toFixed(2)}\n`;
-    csv += `,,,,TOTAL:,${totalCartPrice}\n`;
+    // Formula Tax: nilai Tax = nilai Jumlah Total / (1+ nilai Tax Rate/100) dengan pembulatan dua angka desimal
+    const taxRate = 11;
+    const taxValue = (totalCartPrice / (1 + taxRate / 100)).toFixed(2);
+
+    // Customer info in Column A
+    const nameColA = `"${customerName.trim().toUpperCase().replace(/"/g, '""')}"`;
+    const addressColA = `"${customerAddress.trim().replace(/"/g, '""')}"`;
+    const codeDisplay = customerCode.trim() ? customerCode.trim().toUpperCase() : 'PELANGGAN TUNAI';
+    const codeColA = `"${codeDisplay.replace(/"/g, '""')}"`;
+    const phoneColA = `"${customerPhone.trim().replace(/"/g, '""')}"`;
+
+    // 4 commas shift the labels to Column E (under Disc.%) and values to Column F (under Total)
+    csv += `\n${nameColA},,,,Jumlah Total:,${totalCartPrice}\n`;
+    csv += `${addressColA},,,,Tax Rate:,11%\n`;
+    csv += `${codeColA},,,,Tax:,${taxValue}\n`;
+    csv += `${phoneColA},,,,TOTAL:,${totalCartPrice}\n`;
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
@@ -299,16 +323,33 @@ export const CartDrawer: React.FC = () => {
               )}
               <input
                 type="text"
-                placeholder="Nama Anda / Perusahaan (contoh: CV Bintang Teknik)"
+                placeholder="Nama Anda / Perusahaan (contoh: CV Bintang Teknik) *"
                 value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
+                onChange={(e) => {
+                  setCustomerName(e.target.value);
+                  localStorage.setItem('sst_customer_name', e.target.value);
+                }}
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#135A62]"
               />
               <input
                 type="text"
-                placeholder="Alamat Pengiriman / Kota (contoh: Rungkut, Surabaya)"
+                placeholder="Alamat Pengiriman / Kota (contoh: Rungkut, Surabaya) *"
                 value={customerAddress}
-                onChange={(e) => setCustomerAddress(e.target.value)}
+                onChange={(e) => {
+                  setCustomerAddress(e.target.value);
+                  localStorage.setItem('sst_customer_address', e.target.value);
+                }}
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#135A62]"
+              />
+              <input
+                type="tel"
+                placeholder="Nomor WhatsApp Anda (contoh: 081234567890)"
+                value={customerPhone}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9+\s-]/g, '');
+                  setCustomerPhone(val);
+                  localStorage.setItem('sst_customer_phone', val);
+                }}
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#135A62]"
               />
               <div className="relative">
@@ -322,10 +363,12 @@ export const CartDrawer: React.FC = () => {
                   onBlur={() => {
                     if (!customerCode.trim()) setCustomerCode('Pelanggan Tunai');
                     setIsCodeFocused(false);
+                    localStorage.setItem('sst_customer_code', customerCode.trim() || 'Pelanggan Tunai');
                   }}
                   onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, '').slice(0, 6);
                     setCustomerCode(val);
+                    localStorage.setItem('sst_customer_code', val || 'Pelanggan Tunai');
                   }}
                   className={`w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#135A62] ${customerCode === 'Pelanggan Tunai' ? 'font-bold' : 'font-bold tracking-widest'}`}
                 />
