@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useCatalog } from '../context/CatalogContext';
 import { Product, InfoTrendItem } from '../types';
-import { parseProductsFile, exportProductsToCSV, downloadFile, formatRupiah } from '../utils/csvHelper';
+import { parseProductsFile, exportProductsToCSV, downloadFile, formatRupiah, parseCleanNumber, sanitizeProductData } from '../utils/csvHelper';
 import {
   currentFirebaseProjectId,
   currentDatabaseId,
@@ -1966,7 +1966,7 @@ export const AdminModal: React.FC = () => {
                               })();
 
                               const timeoutPromise = new Promise((_, reject) =>
-                                setTimeout(() => reject(new Error('Timeout koneksi (15 detik). Pastikan Cloud Firestore di Firebase Console sudah dibuat dan Rules mengizinkan tulis (allow read, write: if true;).')), 15000)
+                                setTimeout(() => reject(new Error('Timeout koneksi (60 detik). Pastikan Cloud Firestore di Firebase Console sudah dibuat dan Rules mengizinkan tulis (allow read, write: if true;).')), 60000)
                               );
 
                               await Promise.race([seedPromise, timeoutPromise]);
@@ -2237,10 +2237,11 @@ export const AdminModal: React.FC = () => {
                 <div>
                   <label className="block font-semibold mb-1">Harga Standar (Rp) *</label>
                   <input
-                    type="number"
-                    value={editingProduct.harga}
+                    type="text"
+                    inputMode="numeric"
+                    value={editingProduct.harga || ''}
                     onChange={(e) =>
-                      setEditingProduct({ ...editingProduct, harga: parseFloat(e.target.value) || 0 })
+                      setEditingProduct({ ...editingProduct, harga: parseCleanNumber(e.target.value) })
                     }
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs"
                   />
@@ -2251,12 +2252,13 @@ export const AdminModal: React.FC = () => {
                     Harga Diskon (Rp, Kosongkan jika tanpa diskon):
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={editingProduct.harga_diskon || ''}
                     onChange={(e) =>
                       setEditingProduct({
                         ...editingProduct,
-                        harga_diskon: e.target.value ? parseFloat(e.target.value) : undefined,
+                        harga_diskon: e.target.value ? parseCleanNumber(e.target.value) : undefined,
                       })
                     }
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs"
@@ -2268,10 +2270,11 @@ export const AdminModal: React.FC = () => {
                     Jumlah Stok (0 = &quot;Tanya Admin&quot;, &gt;0 = &quot;Tersedia&quot;)
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={editingProduct.jumlah_stok}
                     onChange={(e) =>
-                      setEditingProduct({ ...editingProduct, jumlah_stok: parseInt(e.target.value, 10) || 0 })
+                      setEditingProduct({ ...editingProduct, jumlah_stok: Math.max(0, parseInt(e.target.value, 10) || 0) })
                     }
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs"
                   />
@@ -2280,12 +2283,13 @@ export const AdminModal: React.FC = () => {
                 <div>
                   <label className="block font-semibold mb-1">Isi Pieces Kemasan</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={editingProduct.jumlah_pieces_packing}
                     onChange={(e) =>
                       setEditingProduct({
                         ...editingProduct,
-                        jumlah_pieces_packing: parseInt(e.target.value, 10) || 1,
+                        jumlah_pieces_packing: Math.max(1, parseInt(e.target.value, 10) || 1),
                       })
                     }
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs"
